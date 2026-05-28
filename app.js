@@ -409,8 +409,8 @@ const app = {
             }
         };
 
-        applyStatusToBox(d.dailyStatus, 'daily-action-box', 'Bảng Hành Chính', 'submitDaily', 'app.undoSubmit(\\'daily\\')');
-        applyStatusToBox(d.otStatus, 'ot-action-box', 'Tăng Ca', 'submitOT', 'app.undoSubmit(\\'ot\\')');
+        applyStatusToBox(d.dailyStatus, 'daily-action-box', 'Bảng Hành Chính', 'submitDaily', "app.undoSubmit('daily')");
+        applyStatusToBox(d.otStatus, 'ot-action-box', 'Tăng Ca', 'submitOT', "app.undoSubmit('ot')");
 
         // SumBox text based on both
         if (d.dailyStatus === 'PENDING' || d.otStatus === 'PENDING') sumBox.innerText = 'Chờ Giám sát duyệt';
