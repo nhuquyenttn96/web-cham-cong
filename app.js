@@ -12,36 +12,24 @@ const firebaseConfig = {
   measurementId: "G-KLTK5C9ETQ"
 };
 
-// Initialize Firebase
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getDatabase(firebaseApp);
 
-const WAGE_PER_HOUR = 50000; // 50,000 VNĐ / giờ
+const WAGE_PER_HOUR = 50000;
 
-const mockWorkers = [
-    { id: 'W01', name: 'Nguyễn Văn A', role: 'Thợ chính' },
-    { id: 'W02', name: 'Trần Văn B', role: 'Thợ phụ' },
-    { id: 'W03', name: 'Lê Thị C', role: 'Thợ phụ' },
-    { id: 'W04', name: 'Phạm Văn D', role: 'Thợ chính' },
-    { id: 'W05', name: 'Hoàng Văn E', role: 'Thợ phụ' }
-];
-
-// Lấy ngày hiện tại (theo giờ địa phương)
 const dNow = new Date();
 const todayStr = dNow.getFullYear() + '-' + String(dNow.getMonth() + 1).padStart(2, '0') + '-' + String(dNow.getDate()).padStart(2, '0');
-// Lấy ngày đầu tháng
 const firstDayStr = todayStr.slice(0, 8) + '01';
 
-// Global State
 const state = {
-    role: 'LEADER', // LEADER | SUPERVISOR | PM
+    role: null, 
     currentDate: todayStr, 
     summaryStartDate: firstDayStr,
     summaryEndDate: todayStr,
-    history: {}
+    history: {},
+    workers: []
 };
 
-// Đảm bảo dữ liệu mặc định
 function ensureDateData(dateStr) {
     if (!state.history[dateStr]) {
         state.history[dateStr] = {
@@ -50,43 +38,93 @@ function ensureDateData(dateStr) {
             dailyStatus: 'NOT_SUBMITTED',
             otStatus: 'NOT_SUBMITTED'
         };
-        mockWorkers.forEach(w => {
+        state.workers.forEach(w => {
             state.history[dateStr].dailyData[w.id] = 0;
             state.history[dateStr].otData[w.id] = 0;
+        });
+    } else {
+        state.workers.forEach(w => {
+            if(state.history[dateStr].dailyData[w.id] === undefined) {
+                state.history[dateStr].dailyData[w.id] = 0;
+            }
+            if(state.history[dateStr].otData[w.id] === undefined) {
+                state.history[dateStr].otData[w.id] = 0;
+            }
         });
     }
 }
 
-// --- CORE APP LOGIC ---
 const app = {
+    login() {
+        const role = document.getElementById('login-role').value;
+        const pin = document.getElementById('login-pin').value;
+        
+        let valid = false;
+        if(role === 'LEADER' && pin === '1111') valid = true;
+        if(role === 'SUPERVISOR' && pin === '2222') valid = true;
+        if(role === 'PM' && pin === '3333') valid = true;
+        
+        if(!valid) {
+            alert('Mã PIN không đúng!');
+            return;
+        }
+        
+        state.role = role;
+        document.body.setAttribute('data-role', role);
+        document.getElementById('login-overlay').classList.remove('active');
+        document.getElementById('app').style.display = 'block';
+        
+        this.init();
+    },
+
+    logout() {
+        if(confirm("Bạn muốn đăng xuất?")) {
+            location.reload();
+        }
+    },
+
     init() {
         document.getElementById('date-picker-daily').value = state.currentDate;
         document.getElementById('summary-start').value = state.summaryStartDate;
         document.getElementById('summary-end').value = state.summaryEndDate;
-        
-        ensureDateData(state.currentDate);
 
-        this.changeRole(document.getElementById('role-select').value);
-        this.renderDaily();
-        this.renderOT();
-        this.renderSummary();
+        const workersRef = ref(db, 'workers');
+        onValue(workersRef, (snapshot) => {
+            const data = snapshot.val();
+            if (!data || data.length === 0) {
+                const mockWorkers = [
+                    { id: 'W01', name: 'Nguyễn Văn A', role: 'Thợ chính' },
+                    { id: 'W02', name: 'Trần Văn B', role: 'Thợ phụ' },
+                    { id: 'W03', name: 'Lê Thị C', role: 'Thợ phụ' },
+                    { id: 'W04', name: 'Phạm Văn D', role: 'Thợ chính' },
+                    { id: 'W05', name: 'Hoàng Văn E', role: 'Thợ phụ' }
+                ];
+                set(ref(db, 'workers'), mockWorkers);
+            } else {
+                state.workers = data.filter(w => w !== null); 
+                ensureDateData(state.currentDate);
+                this.renderDaily();
+                this.renderOT();
+                this.renderSummary();
+                this.renderWorkerSettings();
+            }
+        });
 
-        // Lắng nghe dữ liệu từ Firebase
         const historyRef = ref(db, 'history');
         onValue(historyRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                // Hợp nhất dữ liệu Firebase vào state cục bộ
                 for (let dateStr in data) {
-                    if (!state.history[dateStr]) ensureDateData(dateStr);
-                    // Ghi đè dữ liệu
+                    if (!state.history[dateStr]) {
+                        state.history[dateStr] = { dailyData: {}, otData: {}, dailyStatus: 'NOT_SUBMITTED', otStatus: 'NOT_SUBMITTED' };
+                    }
                     if (data[dateStr].dailyData) state.history[dateStr].dailyData = data[dateStr].dailyData;
                     if (data[dateStr].otData) state.history[dateStr].otData = data[dateStr].otData;
                     if (data[dateStr].dailyStatus) state.history[dateStr].dailyStatus = data[dateStr].dailyStatus;
                     if (data[dateStr].otStatus) state.history[dateStr].otStatus = data[dateStr].otStatus;
                 }
             }
-            // Gọi lại render để cập nhật UI ngay lập tức
+            ensureDateData(state.currentDate);
             this.renderDaily();
             this.renderOT();
             this.renderSummary();
@@ -94,14 +132,121 @@ const app = {
         });
     },
 
-    saveToFirebase(dateStr) {
-        set(ref(db, 'history/' + dateStr), state.history[dateStr]);
+    openWorkerModal() {
+        document.getElementById('worker-modal').classList.add('active');
+        this.renderWorkerSettings();
     },
 
-    changeRole(newRole) {
-        state.role = newRole;
-        document.body.setAttribute('data-role', newRole);
-        this.updateStatusUI();
+    closeWorkerModal() {
+        document.getElementById('worker-modal').classList.remove('active');
+    },
+
+    renderWorkerSettings() {
+        const container = document.getElementById('settings-worker-list');
+        if(!container) return;
+        container.innerHTML = '';
+        state.workers.forEach((w, index) => {
+            container.innerHTML += `
+                <div class="worker-row-settings">
+                    <div>
+                        <strong>${w.name}</strong><br>
+                        <small style="color:#64748b">${w.role}</small>
+                    </div>
+                    <button class="btn btn-danger" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.deleteWorker(${index})">Xóa</button>
+                </div>
+            `;
+        });
+    },
+
+    addWorker() {
+        const name = document.getElementById('new-worker-name').value.trim();
+        const role = document.getElementById('new-worker-role').value;
+        if(!name) { alert('Vui lòng nhập tên!'); return; }
+        
+        const newId = 'W' + new Date().getTime(); 
+        const newWorkers = [...state.workers, { id: newId, name: name, role: role }];
+        set(ref(db, 'workers'), newWorkers);
+        
+        document.getElementById('new-worker-name').value = '';
+    },
+
+    deleteWorker(index) {
+        if(!confirm(`Xóa công nhân ${state.workers[index].name}?`)) return;
+        const newWorkers = state.workers.filter((_, i) => i !== index);
+        set(ref(db, 'workers'), newWorkers);
+    },
+
+    exportExcel() {
+        if(!window.XLSX) {
+            alert("Đang tải thư viện Excel, vui lòng thử lại sau 2 giây...");
+            return;
+        }
+
+        const startStr = document.getElementById('summary-start').value;
+        const endStr = document.getElementById('summary-end').value;
+        
+        let totalReg = 0;
+        let totalOT = 0;
+        const aggregated = {};
+        state.workers.forEach(w => aggregated[w.id] = { reg: 0, ot: 0, name: w.name, role: w.role });
+
+        let current = new Date(startStr);
+        let end = new Date(endStr);
+        while (current <= end) {
+            let dStr = current.toISOString().split('T')[0];
+            if (state.history[dStr]) {
+                const dayData = state.history[dStr];
+                state.workers.forEach(w => {
+                    aggregated[w.id].reg += (dayData.dailyData[w.id] || 0);
+                    aggregated[w.id].ot += (dayData.otData[w.id] || 0);
+                });
+            }
+            current.setDate(current.getDate() + 1);
+        }
+
+        const data = [
+            ["BẢNG TỔNG HỢP CHẤM CÔNG VÀ THANH TOÁN LƯƠNG"],
+            [`Từ ngày: ${startStr} - Đến ngày: ${endStr}`],
+            [],
+            ["STT", "Họ và Tên", "Chức danh", "Công Hành chính (Giờ)", "Tăng ca (Giờ)", "Tổng công (Giờ)", "Đơn giá (VNĐ/h)", "Thành tiền (VNĐ)"]
+        ];
+
+        let stt = 1;
+        let sumMoney = 0;
+        state.workers.forEach(w => {
+            const rowData = aggregated[w.id];
+            if(rowData.reg > 0 || rowData.ot > 0) {
+                const totalHours = rowData.reg + rowData.ot;
+                const money = totalHours * WAGE_PER_HOUR;
+                sumMoney += money;
+                data.push([
+                    stt++,
+                    rowData.name,
+                    rowData.role,
+                    rowData.reg,
+                    rowData.ot,
+                    totalHours,
+                    WAGE_PER_HOUR,
+                    money
+                ]);
+            }
+        });
+
+        data.push([]);
+        data.push(["", "", "", "", "", "", "TỔNG CỘNG:", sumMoney]);
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Bang_Cong");
+        
+        const wscols = [{wch:5}, {wch:25}, {wch:15}, {wch:20}, {wch:15}, {wch:15}, {wch:15}, {wch:20}];
+        ws['!cols'] = wscols;
+
+        XLSX.writeFile(wb, `BangCong_${startStr}_${endStr}.xlsx`);
+    },
+
+    saveToFirebase(dateStr) {
+        set(ref(db, 'history/' + dateStr), state.history[dateStr]);
     },
 
     switchTab(pageId, navElement) {
@@ -126,9 +271,9 @@ const app = {
         this.updateStatusUI();
     },
 
-    // --- DAILY ATTENDANCE ---
     renderDaily() {
         const container = document.getElementById('daily-list');
+        if(!container) return;
         container.innerHTML = '';
         
         const dateData = state.history[state.currentDate];
@@ -137,7 +282,7 @@ const app = {
 
         let totalPresent = 0;
 
-        mockWorkers.forEach(w => {
+        state.workers.forEach(w => {
             const currentVal = dateData.dailyData[w.id] || 0;
             if(currentVal > 0) totalPresent++;
             
@@ -165,7 +310,7 @@ const app = {
             container.innerHTML += html;
         });
         
-        document.getElementById('daily-stats').innerHTML = `Sĩ số: <strong>${totalPresent}/${mockWorkers.length}</strong> đi làm`;
+        document.getElementById('daily-stats').innerHTML = `Sĩ số: <strong>${totalPresent}/${state.workers.length}</strong> đi làm`;
         this.updateStatusUI();
     },
 
@@ -185,7 +330,7 @@ const app = {
         const d = state.history[state.currentDate];
         if(d.dailyStatus === 'PM_APPROVED' || d.dailyStatus === 'SUPERVISOR_APPROVED' || d.dailyStatus === 'PENDING') return;
         
-        mockWorkers.forEach(w => {
+        state.workers.forEach(w => {
             d.dailyData[w.id] = hours;
             if(hours === 0) d.otData[w.id] = 0;
         });
@@ -202,15 +347,15 @@ const app = {
         alert('Đã gửi bảng chấm công ngày ' + state.currentDate + ' cho Giám sát!');
     },
 
-    // --- OVERTIME ---
     renderOT() {
         const container = document.getElementById('ot-list');
+        if(!container) return;
         container.innerHTML = '';
         
         const d = state.history[state.currentDate];
         let hasWorkers = false;
         
-        mockWorkers.forEach(w => {
+        state.workers.forEach(w => {
             if (d.dailyData[w.id] > 0) {
                 hasWorkers = true;
                 const currentOT = d.otData[w.id] || 0;
@@ -247,7 +392,7 @@ const app = {
         let current = d.otData[workerId] || 0;
         current += delta;
         if (current < 0) current = 0;
-        if (current > 12) current = 12; // sanity check max OT
+        if (current > 12) current = 12; 
         
         d.otData[workerId] = current;
         this.saveToFirebase(state.currentDate);
@@ -268,23 +413,25 @@ const app = {
         if (type === 'daily' && d.dailyStatus === 'PENDING') {
             d.dailyStatus = 'NOT_SUBMITTED'; 
             this.saveToFirebase(state.currentDate);
-            alert('Đã THU HỒI bảng công hành chính! Bây giờ bạn có thể sửa lại thoải mái.');
+            alert('Đã THU HỒI bảng công hành chính!');
         } else if (type === 'ot' && d.otStatus === 'PENDING') {
             d.otStatus = 'NOT_SUBMITTED'; 
             this.saveToFirebase(state.currentDate);
-            alert('Đã THU HỒI bảng công tăng ca! Bây giờ bạn có thể sửa lại thoải mái.');
+            alert('Đã THU HỒI bảng công tăng ca!');
         }
     },
 
-    // --- SUMMARY & APPROVAL ---
     renderSummary() {
         const startStr = document.getElementById('summary-start').value;
         const endStr = document.getElementById('summary-end').value;
         state.summaryStartDate = startStr;
         state.summaryEndDate = endStr;
 
+        const container = document.getElementById('summary-list');
+        if(!container) return;
+
         if (!startStr || !endStr || startStr > endStr) {
-            document.getElementById('summary-list').innerHTML = '<p style="text-align:center; padding: 20px;">Vui lòng chọn khoảng thời gian hợp lệ.</p>';
+            container.innerHTML = '<p style="text-align:center; padding: 20px;">Vui lòng chọn khoảng thời gian hợp lệ.</p>';
             return;
         }
 
@@ -292,7 +439,7 @@ const app = {
         let totalOT = 0;
         
         const aggregated = {};
-        mockWorkers.forEach(w => aggregated[w.id] = { reg: 0, ot: 0, name: w.name });
+        state.workers.forEach(w => aggregated[w.id] = { reg: 0, ot: 0, name: w.name });
 
         let current = new Date(startStr);
         let end = new Date(endStr);
@@ -301,7 +448,7 @@ const app = {
             let dStr = current.toISOString().split('T')[0];
             if (state.history[dStr]) {
                 const dayData = state.history[dStr];
-                mockWorkers.forEach(w => {
+                state.workers.forEach(w => {
                     aggregated[w.id].reg += (dayData.dailyData[w.id] || 0);
                     aggregated[w.id].ot += (dayData.otData[w.id] || 0);
                 });
@@ -309,10 +456,9 @@ const app = {
             current.setDate(current.getDate() + 1);
         }
 
-        const container = document.getElementById('summary-list');
         container.innerHTML = '';
 
-        mockWorkers.forEach(w => {
+        state.workers.forEach(w => {
             const data = aggregated[w.id];
             totalReg += data.reg;
             totalOT += data.ot;
@@ -386,6 +532,8 @@ const app = {
     },
 
     updateStatusUI() {
+        if(!state.role) return;
+        
         const d = state.history[state.currentDate];
         if (!d) return;
 
@@ -410,7 +558,6 @@ const app = {
                     box.innerHTML = `
                         <button class="btn btn-primary large shadow-glow" onclick="app.${submitFn}()">
                             Gửi ${typeStr}
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:8px;vertical-align:middle"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                         </button>`;
                     break;
                 case 'PENDING':
@@ -468,7 +615,3 @@ const app = {
 };
 
 window.app = app;
-
-window.onload = () => {
-    app.init();
-};
