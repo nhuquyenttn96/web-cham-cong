@@ -158,10 +158,22 @@ const app = {
     submitDaily() {
         const d = state.history[state.currentDate];
         if(d.status === 'PM_APPROVED' || d.status === 'SUPERVISOR_APPROVED') return;
+        if(!confirm("Bạn có chắc chắn muốn GỬI bảng công hôm nay cho Giám sát?")) return;
         
         d.status = 'PENDING';
         this.updateStatusUI();
         alert('Đã gửi bảng chấm công ngày ' + state.currentDate + ' cho Giám sát!');
+    },
+
+    undoSubmit() {
+        const d = state.history[state.currentDate];
+        if (d.status === 'PENDING') {
+            d.status = 'NOT_SUBMITTED'; 
+            this.updateStatusUI();
+            this.renderDaily();
+            this.renderOT();
+            alert('Đã THU HỒI bảng công! Bây giờ bạn có thể sửa lại thoải mái.');
+        }
     },
 
     // --- OVERTIME ---
@@ -216,7 +228,13 @@ const app = {
     },
 
     submitOT() {
-        this.submitDaily(); // Tăng ca và Hành chính chung 1 trạng thái ngày
+        const d = state.history[state.currentDate];
+        if(d.status === 'PM_APPROVED' || d.status === 'SUPERVISOR_APPROVED') return;
+        if(!confirm("Bạn có chắc chắn muốn CẬP NHẬT TĂNG CA hôm nay cho Giám sát?")) return;
+        
+        d.status = 'PENDING';
+        this.updateStatusUI();
+        alert('Đã cập nhật giờ tăng ca ngày ' + state.currentDate);
     },
 
     // --- SUMMARY & APPROVAL ---
@@ -337,6 +355,15 @@ const app = {
             case 'NOT_SUBMITTED':
                 text.innerText = 'Chưa gửi';
                 sumBox.innerText = 'Đội trưởng chưa gửi';
+                document.getElementById('daily-action-box').innerHTML = `
+                    <button class="btn btn-primary large shadow-glow" onclick="app.submitDaily()">
+                        Gửi Bảng Công
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:8px;vertical-align:middle"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                `;
+                document.getElementById('ot-action-box').innerHTML = `
+                    <button class="btn btn-primary large shadow-glow" onclick="app.submitOT()">Cập Nhật Tăng Ca</button>
+                `;
                 break;
             case 'REJECTED':
                 banner.classList.add('pending');
@@ -344,21 +371,33 @@ const app = {
                 banner.style.color = '#b91c1c';
                 text.innerText = 'Bị trả về (Cần sửa lại)';
                 sumBox.innerText = 'Bị trả về';
+                document.getElementById('daily-action-box').innerHTML = `
+                    <button class="btn btn-primary large shadow-glow" onclick="app.submitDaily()">Gửi Lại Bảng Công</button>
+                `;
+                document.getElementById('ot-action-box').innerHTML = `
+                    <button class="btn btn-primary large shadow-glow" onclick="app.submitOT()">Gửi Lại Tăng Ca</button>
+                `;
                 break;
             case 'PENDING':
-                banner.classList.add('pending');
-                text.innerText = 'Đang chờ duyệt (Giám sát)';
+                banner.className = 'status-banner pending';
+                text.innerText = 'Chờ Giám sát duyệt';
                 sumBox.innerText = 'Chờ Giám sát duyệt';
+                document.getElementById('daily-action-box').innerHTML = `<button class="btn btn-danger large shadow-glow" onclick="app.undoSubmit()">Thu hồi bảng công (Để sửa lại)</button>`;
+                document.getElementById('ot-action-box').innerHTML = `<button class="btn btn-danger large shadow-glow" onclick="app.undoSubmit()">Thu hồi bảng công (Để sửa lại)</button>`;
                 break;
             case 'SUPERVISOR_APPROVED':
-                banner.classList.add('supervisor_approved');
+                banner.className = 'status-banner supervisor_approved';
                 text.innerText = 'Giám sát đã duyệt. Chờ QLDA chốt.';
                 sumBox.innerText = 'Chờ Quản lý chốt';
+                document.getElementById('daily-action-box').innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Giám sát đã duyệt)</button>`;
+                document.getElementById('ot-action-box').innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Giám sát đã duyệt)</button>`;
                 break;
             case 'PM_APPROVED':
-                banner.classList.add('pm_approved');
+                banner.className = 'status-banner pm_approved';
                 text.innerText = 'Đã chốt lương / Đã thanh toán';
                 sumBox.innerText = 'ĐÃ CHỐT THANH TOÁN';
+                document.getElementById('daily-action-box').innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Đã chốt thanh toán)</button>`;
+                document.getElementById('ot-action-box').innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Đã chốt thanh toán)</button>`;
                 break;
         }
 

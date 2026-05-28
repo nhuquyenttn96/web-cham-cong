@@ -17,7 +17,7 @@
                     <div class="brand-icon">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
                     </div>
-                    <h1>ProTime</h1>
+                    <h1>HIREE</h1>
                 </div>
                 <div class="role-selector-wrap">
                     <select id="role-select" onchange="app.changeRole(this.value)">
@@ -58,7 +58,7 @@
                 <div class="list-container" id="daily-list">
                     <!-- JS render danh sách -->
                 </div>
-                <div class="bottom-action action-leader-only">
+                <div class="bottom-action action-leader-only" id="daily-action-box">
                     <button class="btn btn-primary large shadow-glow" onclick="app.submitDaily()">
                         Gửi Bảng Công
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
@@ -77,7 +77,7 @@
                 <div class="list-container" id="ot-list">
                     <!-- JS render danh sách tăng ca -->
                 </div>
-                <div class="bottom-action action-leader-only">
+                <div class="bottom-action action-leader-only" id="ot-action-box">
                     <button class="btn btn-primary large shadow-glow" onclick="app.submitOT()">Cập Nhật Tăng Ca</button>
                 </div>
             </section>
