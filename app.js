@@ -1,3 +1,21 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDVOFcPfc4Bc4gAEdwZQ-i9VV0KIR1Sudc",
+  authDomain: "web-cham-cong-2dfd8.firebaseapp.com",
+  databaseURL: "https://web-cham-cong-2dfd8-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "web-cham-cong-2dfd8",
+  storageBucket: "web-cham-cong-2dfd8.firebasestorage.app",
+  messagingSenderId: "100405631566",
+  appId: "1:100405631566:web:0baed9a71a22248c69c11f",
+  measurementId: "G-KLTK5C9ETQ"
+};
+
+// Initialize Firebase
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getDatabase(firebaseApp);
+
 const WAGE_PER_HOUR = 50000; // 50,000 VNĐ / giờ
 
 const mockWorkers = [
@@ -19,21 +37,18 @@ const state = {
     currentDate: todayStr, 
     summaryStartDate: firstDayStr,
     summaryEndDate: todayStr,
-    
-    // Lưu trữ theo ngày: 'YYYY-MM-DD': { dailyData, otData, dailyStatus, otStatus }
     history: {}
 };
 
-// Hàm tiện ích: Đảm bảo dữ liệu của 1 ngày đã được khởi tạo
+// Đảm bảo dữ liệu mặc định
 function ensureDateData(dateStr) {
     if (!state.history[dateStr]) {
         state.history[dateStr] = {
             dailyData: {},
             otData: {},
-            dailyStatus: 'NOT_SUBMITTED', // NOT_SUBMITTED, PENDING, SUPERVISOR_APPROVED, PM_APPROVED, REJECTED
+            dailyStatus: 'NOT_SUBMITTED',
             otStatus: 'NOT_SUBMITTED'
         };
-        // Mặc định công nhân 0 tiếng
         mockWorkers.forEach(w => {
             state.history[dateStr].dailyData[w.id] = 0;
             state.history[dateStr].otData[w.id] = 0;
@@ -44,7 +59,6 @@ function ensureDateData(dateStr) {
 // --- CORE APP LOGIC ---
 const app = {
     init() {
-        // Cài đặt giá trị mặc định cho ô chọn ngày
         document.getElementById('date-picker-daily').value = state.currentDate;
         document.getElementById('summary-start').value = state.summaryStartDate;
         document.getElementById('summary-end').value = state.summaryEndDate;
@@ -55,6 +69,32 @@ const app = {
         this.renderDaily();
         this.renderOT();
         this.renderSummary();
+
+        // Lắng nghe dữ liệu từ Firebase
+        const historyRef = ref(db, 'history');
+        onValue(historyRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                // Hợp nhất dữ liệu Firebase vào state cục bộ
+                for (let dateStr in data) {
+                    if (!state.history[dateStr]) ensureDateData(dateStr);
+                    // Ghi đè dữ liệu
+                    if (data[dateStr].dailyData) state.history[dateStr].dailyData = data[dateStr].dailyData;
+                    if (data[dateStr].otData) state.history[dateStr].otData = data[dateStr].otData;
+                    if (data[dateStr].dailyStatus) state.history[dateStr].dailyStatus = data[dateStr].dailyStatus;
+                    if (data[dateStr].otStatus) state.history[dateStr].otStatus = data[dateStr].otStatus;
+                }
+            }
+            // Gọi lại render để cập nhật UI ngay lập tức
+            this.renderDaily();
+            this.renderOT();
+            this.renderSummary();
+            this.updateStatusUI();
+        });
+    },
+
+    saveToFirebase(dateStr) {
+        set(ref(db, 'history/' + dateStr), state.history[dateStr]);
     },
 
     changeRole(newRole) {
@@ -64,21 +104,15 @@ const app = {
     },
 
     switchTab(pageId, navElement) {
-        // Hide all pages
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        // Show target
         document.getElementById(pageId).classList.add('active');
-        
-        // Update nav icons
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         navElement.classList.add('active');
 
-        // Re-render
         if (pageId === 'page-daily') this.renderDaily();
         if (pageId === 'page-overtime') this.renderOT();
         if (pageId === 'page-summary') this.renderSummary();
         
-        // Update header banner based on active tab
         this.updateStatusUI();
     },
 
@@ -86,8 +120,6 @@ const app = {
         if (!newDate) return;
         state.currentDate = newDate;
         ensureDateData(state.currentDate);
-        
-        // Cập nhật lại UI
         this.renderDaily();
         this.renderOT();
         this.updateStatusUI();
@@ -140,12 +172,12 @@ const app = {
         const d = state.history[state.currentDate];
         if(d.dailyStatus === 'PM_APPROVED' || d.dailyStatus === 'SUPERVISOR_APPROVED' || d.dailyStatus === 'PENDING') {
             alert('Bảng công đang chờ duyệt hoặc đã duyệt, không thể sửa! Hãy yêu cầu Giám sát trả về nếu cần.');
-            this.renderDaily(); // revert UI
+            this.renderDaily();
             return;
         }
         d.dailyData[workerId] = hours;
         if (hours === 0) d.otData[workerId] = 0;
-        this.renderDaily(); // update stats
+        this.saveToFirebase(state.currentDate);
     },
 
     selectAllDaily(hours) {
@@ -156,7 +188,7 @@ const app = {
             d.dailyData[w.id] = hours;
             if(hours === 0) d.otData[w.id] = 0;
         });
-        this.renderDaily();
+        this.saveToFirebase(state.currentDate);
     },
 
     submitDaily() {
@@ -165,7 +197,7 @@ const app = {
         if(!confirm("Bạn có chắc chắn muốn GỬI bảng công hôm nay cho Giám sát?")) return;
         
         d.dailyStatus = 'PENDING';
-        this.updateStatusUI();
+        this.saveToFirebase(state.currentDate);
         alert('Đã gửi bảng chấm công ngày ' + state.currentDate + ' cho Giám sát!');
     },
 
@@ -217,7 +249,7 @@ const app = {
         if (current > 12) current = 12; // sanity check max OT
         
         d.otData[workerId] = current;
-        document.getElementById(`ot_val_${workerId}`).innerText = current;
+        this.saveToFirebase(state.currentDate);
     },
 
     submitOT() {
@@ -226,7 +258,7 @@ const app = {
         if(!confirm("Bạn có chắc chắn muốn CẬP NHẬT TĂNG CA hôm nay cho Giám sát?")) return;
         
         d.otStatus = 'PENDING';
-        this.updateStatusUI();
+        this.saveToFirebase(state.currentDate);
         alert('Đã cập nhật giờ tăng ca ngày ' + state.currentDate);
     },
 
@@ -234,13 +266,11 @@ const app = {
         const d = state.history[state.currentDate];
         if (type === 'daily' && d.dailyStatus === 'PENDING') {
             d.dailyStatus = 'NOT_SUBMITTED'; 
-            this.updateStatusUI();
-            this.renderDaily();
+            this.saveToFirebase(state.currentDate);
             alert('Đã THU HỒI bảng công hành chính! Bây giờ bạn có thể sửa lại thoải mái.');
         } else if (type === 'ot' && d.otStatus === 'PENDING') {
             d.otStatus = 'NOT_SUBMITTED'; 
-            this.updateStatusUI();
-            this.renderOT();
+            this.saveToFirebase(state.currentDate);
             alert('Đã THU HỒI bảng công tăng ca! Bây giờ bạn có thể sửa lại thoải mái.');
         }
     },
@@ -260,11 +290,9 @@ const app = {
         let totalReg = 0;
         let totalOT = 0;
         
-        // Gom dữ liệu theo từng công nhân
         const aggregated = {};
         mockWorkers.forEach(w => aggregated[w.id] = { reg: 0, ot: 0, name: w.name });
 
-        // Lặp qua từng ngày trong khoảng
         let current = new Date(startStr);
         let end = new Date(endStr);
         
@@ -321,7 +349,7 @@ const app = {
         if(d.otStatus === 'PENDING') { d.otStatus = 'REJECTED'; changed = true; }
         
         if (changed) {
-            this.updateStatusUI();
+            this.saveToFirebase(state.currentDate);
             alert('Đã trả về cho Đội trưởng để sửa lại.');
         } else {
             alert('Không có bảng công nào đang "Chờ Duyệt" để trả về.');
@@ -335,7 +363,7 @@ const app = {
         if(d.otStatus === 'PENDING' || d.otStatus === 'REJECTED') { d.otStatus = 'SUPERVISOR_APPROVED'; changed = true; }
         
         if (changed) {
-            this.updateStatusUI();
+            this.saveToFirebase(state.currentDate);
             alert('Đã duyệt bảng công ngày ' + state.currentDate);
         } else {
             alert('Không có bảng công nào cần duyệt cho ngày này.');
@@ -349,7 +377,7 @@ const app = {
         if(d.otStatus === 'SUPERVISOR_APPROVED') { d.otStatus = 'PM_APPROVED'; changed = true; }
         
         if (changed) {
-            this.updateStatusUI();
+            this.saveToFirebase(state.currentDate);
             alert('Đã chốt thanh toán ngày ' + state.currentDate + '!');
         } else {
             alert('Phải chờ Giám sát duyệt trước, hoặc đã chốt rồi.');
@@ -360,7 +388,6 @@ const app = {
         const d = state.history[state.currentDate];
         if (!d) return;
 
-        // Banner and summary text
         const banner = document.getElementById('daily-status-banner');
         const text = document.getElementById('daily-status-text');
         const sumBox = document.getElementById('summary-status-text');
@@ -368,15 +395,13 @@ const app = {
         const activeTab = document.querySelector('.page.active');
         const activeTabId = activeTab ? activeTab.id : 'page-daily';
 
-        // Helper func
         const applyStatusToBox = (status, boxId, typeStr, submitFn, undoFn) => {
             const box = document.getElementById(boxId);
             if (!box) return;
             
-            // Only update banner if this tab is active
             const isTabActive = (boxId === 'daily-action-box' && activeTabId === 'page-daily') || (boxId === 'ot-action-box' && activeTabId === 'page-overtime');
             
-            if (isTabActive) banner.className = 'status-banner'; // reset
+            if (isTabActive) banner.className = 'status-banner'; 
 
             switch(status) {
                 case 'NOT_SUBMITTED':
@@ -412,14 +437,12 @@ const app = {
         applyStatusToBox(d.dailyStatus, 'daily-action-box', 'Bảng Hành Chính', 'submitDaily', "app.undoSubmit('daily')");
         applyStatusToBox(d.otStatus, 'ot-action-box', 'Tăng Ca', 'submitOT', "app.undoSubmit('ot')");
 
-        // SumBox text based on both
         if (d.dailyStatus === 'PENDING' || d.otStatus === 'PENDING') sumBox.innerText = 'Chờ Giám sát duyệt';
         else if (d.dailyStatus === 'REJECTED' || d.otStatus === 'REJECTED') sumBox.innerText = 'Bị trả về (Cần sửa lại)';
         else if (d.dailyStatus === 'SUPERVISOR_APPROVED' || d.otStatus === 'SUPERVISOR_APPROVED') sumBox.innerText = 'Giám sát đã duyệt';
         else if (d.dailyStatus === 'PM_APPROVED' || d.otStatus === 'PM_APPROVED') sumBox.innerText = 'ĐÃ CHỐT';
         else sumBox.innerText = 'Chưa gửi';
 
-        // Hide/Show approval buttons based on status & role
         const btnReject = document.getElementById('btn-reject-supervisor');
         const btnSup = document.getElementById('btn-approve-supervisor');
         const btnPM = document.getElementById('btn-approve-pm');
@@ -443,7 +466,8 @@ const app = {
     }
 };
 
-// Initialize when DOM loads
+window.app = app;
+
 window.onload = () => {
     app.init();
 };
