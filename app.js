@@ -20,7 +20,7 @@ const state = {
     summaryStartDate: firstDayStr,
     summaryEndDate: todayStr,
     
-    // Lưu trữ theo ngày: 'YYYY-MM-DD': { dailyData, otData, status }
+    // Lưu trữ theo ngày: 'YYYY-MM-DD': { dailyData, otData, dailyStatus, otStatus }
     history: {}
 };
 
@@ -30,7 +30,8 @@ function ensureDateData(dateStr) {
         state.history[dateStr] = {
             dailyData: {},
             otData: {},
-            status: 'NOT_SUBMITTED' // NOT_SUBMITTED, PENDING, SUPERVISOR_APPROVED, PM_APPROVED, REJECTED
+            dailyStatus: 'NOT_SUBMITTED', // NOT_SUBMITTED, PENDING, SUPERVISOR_APPROVED, PM_APPROVED, REJECTED
+            otStatus: 'NOT_SUBMITTED'
         };
         // Mặc định công nhân 0 tiếng
         mockWorkers.forEach(w => {
@@ -76,6 +77,9 @@ const app = {
         if (pageId === 'page-daily') this.renderDaily();
         if (pageId === 'page-overtime') this.renderOT();
         if (pageId === 'page-summary') this.renderSummary();
+        
+        // Update header banner based on active tab
+        this.updateStatusUI();
     },
 
     changeDate(newDate) {
@@ -134,7 +138,7 @@ const app = {
 
     updateDaily(workerId, hours) {
         const d = state.history[state.currentDate];
-        if(d.status === 'PM_APPROVED' || d.status === 'SUPERVISOR_APPROVED' || d.status === 'PENDING') {
+        if(d.dailyStatus === 'PM_APPROVED' || d.dailyStatus === 'SUPERVISOR_APPROVED' || d.dailyStatus === 'PENDING') {
             alert('Bảng công đang chờ duyệt hoặc đã duyệt, không thể sửa! Hãy yêu cầu Giám sát trả về nếu cần.');
             this.renderDaily(); // revert UI
             return;
@@ -146,7 +150,7 @@ const app = {
 
     selectAllDaily(hours) {
         const d = state.history[state.currentDate];
-        if(d.status === 'PM_APPROVED' || d.status === 'SUPERVISOR_APPROVED' || d.status === 'PENDING') return;
+        if(d.dailyStatus === 'PM_APPROVED' || d.dailyStatus === 'SUPERVISOR_APPROVED' || d.dailyStatus === 'PENDING') return;
         
         mockWorkers.forEach(w => {
             d.dailyData[w.id] = hours;
@@ -157,23 +161,12 @@ const app = {
 
     submitDaily() {
         const d = state.history[state.currentDate];
-        if(d.status === 'PM_APPROVED' || d.status === 'SUPERVISOR_APPROVED') return;
+        if(d.dailyStatus === 'PM_APPROVED' || d.dailyStatus === 'SUPERVISOR_APPROVED') return;
         if(!confirm("Bạn có chắc chắn muốn GỬI bảng công hôm nay cho Giám sát?")) return;
         
-        d.status = 'PENDING';
+        d.dailyStatus = 'PENDING';
         this.updateStatusUI();
         alert('Đã gửi bảng chấm công ngày ' + state.currentDate + ' cho Giám sát!');
-    },
-
-    undoSubmit() {
-        const d = state.history[state.currentDate];
-        if (d.status === 'PENDING') {
-            d.status = 'NOT_SUBMITTED'; 
-            this.updateStatusUI();
-            this.renderDaily();
-            this.renderOT();
-            alert('Đã THU HỒI bảng công! Bây giờ bạn có thể sửa lại thoải mái.');
-        }
     },
 
     // --- OVERTIME ---
@@ -214,8 +207,8 @@ const app = {
 
     updateOT(workerId, delta) {
         const d = state.history[state.currentDate];
-        if(d.status === 'PM_APPROVED' || d.status === 'SUPERVISOR_APPROVED' || d.status === 'PENDING') {
-            alert('Bảng công đang chờ duyệt hoặc đã duyệt, không thể sửa!');
+        if(d.otStatus === 'PM_APPROVED' || d.otStatus === 'SUPERVISOR_APPROVED' || d.otStatus === 'PENDING') {
+            alert('Bảng tăng ca đang chờ duyệt hoặc đã duyệt, không thể sửa!');
             return;
         }
         let current = d.otData[workerId] || 0;
@@ -229,12 +222,27 @@ const app = {
 
     submitOT() {
         const d = state.history[state.currentDate];
-        if(d.status === 'PM_APPROVED' || d.status === 'SUPERVISOR_APPROVED') return;
+        if(d.otStatus === 'PM_APPROVED' || d.otStatus === 'SUPERVISOR_APPROVED') return;
         if(!confirm("Bạn có chắc chắn muốn CẬP NHẬT TĂNG CA hôm nay cho Giám sát?")) return;
         
-        d.status = 'PENDING';
+        d.otStatus = 'PENDING';
         this.updateStatusUI();
         alert('Đã cập nhật giờ tăng ca ngày ' + state.currentDate);
+    },
+
+    undoSubmit(type) {
+        const d = state.history[state.currentDate];
+        if (type === 'daily' && d.dailyStatus === 'PENDING') {
+            d.dailyStatus = 'NOT_SUBMITTED'; 
+            this.updateStatusUI();
+            this.renderDaily();
+            alert('Đã THU HỒI bảng công hành chính! Bây giờ bạn có thể sửa lại thoải mái.');
+        } else if (type === 'ot' && d.otStatus === 'PENDING') {
+            d.otStatus = 'NOT_SUBMITTED'; 
+            this.updateStatusUI();
+            this.renderOT();
+            alert('Đã THU HỒI bảng công tăng ca! Bây giờ bạn có thể sửa lại thoải mái.');
+        }
     },
 
     // --- SUMMARY & APPROVAL ---
@@ -284,10 +292,10 @@ const app = {
             
             if (data.reg > 0 || data.ot > 0) {
                 container.innerHTML += `
-                    <div class="worker-card" style="flex-direction:row; align-items:center;">
+                    <div class="worker-card" style="flex-direction:row; align-items:center; background: white; border-bottom: 1px solid var(--border-color); padding: 12px; display: flex; justify-content: space-between;">
                         <div style="flex:1;">
-                            <div class="worker-name">${data.name}</div>
-                            <div class="subtitle">Thường: ${data.reg}h | Tăng ca: ${data.ot}h</div>
+                            <div class="worker-name" style="font-weight:600;">${data.name}</div>
+                            <div class="subtitle" style="font-size:0.8rem; color:var(--text-muted);">Thường: ${data.reg}h | Tăng ca: ${data.ot}h</div>
                         </div>
                         <div style="font-weight:700; color:#2563eb;">
                             ${personalTotal.toLocaleString('vi-VN')} đ
@@ -308,114 +316,127 @@ const app = {
 
     rejectBySupervisor() {
         const d = state.history[state.currentDate];
-        if (d.status !== 'PENDING') {
-            alert('Chỉ có thể trả về các bảng công đang "Chờ Duyệt".');
-            return;
-        }
-        const confirm = window.confirm('Bạn có chắc muốn TRẢ VỀ bảng công ngày ' + state.currentDate + ' để Đội trưởng sửa lại không?');
-        if (confirm) {
-            d.status = 'REJECTED';
+        let changed = false;
+        if(d.dailyStatus === 'PENDING') { d.dailyStatus = 'REJECTED'; changed = true; }
+        if(d.otStatus === 'PENDING') { d.otStatus = 'REJECTED'; changed = true; }
+        
+        if (changed) {
             this.updateStatusUI();
-            alert('Đã trả về cho Đội trưởng.');
+            alert('Đã trả về cho Đội trưởng để sửa lại.');
+        } else {
+            alert('Không có bảng công nào đang "Chờ Duyệt" để trả về.');
         }
     },
 
     approveBySupervisor() {
         const d = state.history[state.currentDate];
-        if (d.status !== 'PENDING') {
-            alert('Bảng công chưa được Đội trưởng gửi, hoặc đã duyệt rồi.');
-            return;
+        let changed = false;
+        if(d.dailyStatus === 'PENDING' || d.dailyStatus === 'REJECTED') { d.dailyStatus = 'SUPERVISOR_APPROVED'; changed = true; }
+        if(d.otStatus === 'PENDING' || d.otStatus === 'REJECTED') { d.otStatus = 'SUPERVISOR_APPROVED'; changed = true; }
+        
+        if (changed) {
+            this.updateStatusUI();
+            alert('Đã duyệt bảng công ngày ' + state.currentDate);
+        } else {
+            alert('Không có bảng công nào cần duyệt cho ngày này.');
         }
-        d.status = 'SUPERVISOR_APPROVED';
-        this.updateStatusUI();
     },
 
     approveByPM() {
         const d = state.history[state.currentDate];
-        if (d.status !== 'SUPERVISOR_APPROVED') {
+        let changed = false;
+        if(d.dailyStatus === 'SUPERVISOR_APPROVED') { d.dailyStatus = 'PM_APPROVED'; changed = true; }
+        if(d.otStatus === 'SUPERVISOR_APPROVED') { d.otStatus = 'PM_APPROVED'; changed = true; }
+        
+        if (changed) {
+            this.updateStatusUI();
+            alert('Đã chốt thanh toán ngày ' + state.currentDate + '!');
+        } else {
             alert('Phải chờ Giám sát duyệt trước, hoặc đã chốt rồi.');
-            return;
         }
-        d.status = 'PM_APPROVED';
-        this.updateStatusUI();
-        alert('Đã chốt thanh toán ngày ' + state.currentDate + '!');
     },
 
     updateStatusUI() {
         const d = state.history[state.currentDate];
         if (!d) return;
 
+        // Banner and summary text
         const banner = document.getElementById('daily-status-banner');
         const text = document.getElementById('daily-status-text');
         const sumBox = document.getElementById('summary-status-text');
         
-        banner.className = 'status-banner'; // reset
-        
-        switch(d.status) {
-            case 'NOT_SUBMITTED':
-                text.innerText = 'Chưa gửi';
-                sumBox.innerText = 'Đội trưởng chưa gửi';
-                document.getElementById('daily-action-box').innerHTML = `
-                    <button class="btn btn-primary large shadow-glow" onclick="app.submitDaily()">
-                        Gửi Bảng Công
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:8px;vertical-align:middle"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                    </button>
-                `;
-                document.getElementById('ot-action-box').innerHTML = `
-                    <button class="btn btn-primary large shadow-glow" onclick="app.submitOT()">Cập Nhật Tăng Ca</button>
-                `;
-                break;
-            case 'REJECTED':
-                banner.classList.add('pending');
-                banner.style.background = '#fee2e2';
-                banner.style.color = '#b91c1c';
-                text.innerText = 'Bị trả về (Cần sửa lại)';
-                sumBox.innerText = 'Bị trả về';
-                document.getElementById('daily-action-box').innerHTML = `
-                    <button class="btn btn-primary large shadow-glow" onclick="app.submitDaily()">Gửi Lại Bảng Công</button>
-                `;
-                document.getElementById('ot-action-box').innerHTML = `
-                    <button class="btn btn-primary large shadow-glow" onclick="app.submitOT()">Gửi Lại Tăng Ca</button>
-                `;
-                break;
-            case 'PENDING':
-                banner.className = 'status-banner pending';
-                text.innerText = 'Chờ Giám sát duyệt';
-                sumBox.innerText = 'Chờ Giám sát duyệt';
-                document.getElementById('daily-action-box').innerHTML = `<button class="btn btn-danger large shadow-glow" onclick="app.undoSubmit()">Thu hồi bảng công (Để sửa lại)</button>`;
-                document.getElementById('ot-action-box').innerHTML = `<button class="btn btn-danger large shadow-glow" onclick="app.undoSubmit()">Thu hồi bảng công (Để sửa lại)</button>`;
-                break;
-            case 'SUPERVISOR_APPROVED':
-                banner.className = 'status-banner supervisor_approved';
-                text.innerText = 'Giám sát đã duyệt. Chờ QLDA chốt.';
-                sumBox.innerText = 'Chờ Quản lý chốt';
-                document.getElementById('daily-action-box').innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Giám sát đã duyệt)</button>`;
-                document.getElementById('ot-action-box').innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Giám sát đã duyệt)</button>`;
-                break;
-            case 'PM_APPROVED':
-                banner.className = 'status-banner pm_approved';
-                text.innerText = 'Đã chốt lương / Đã thanh toán';
-                sumBox.innerText = 'ĐÃ CHỐT THANH TOÁN';
-                document.getElementById('daily-action-box').innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Đã chốt thanh toán)</button>`;
-                document.getElementById('ot-action-box').innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Đã chốt thanh toán)</button>`;
-                break;
-        }
+        const activeTab = document.querySelector('.page.active');
+        const activeTabId = activeTab ? activeTab.id : 'page-daily';
+
+        // Helper func
+        const applyStatusToBox = (status, boxId, typeStr, submitFn, undoFn) => {
+            const box = document.getElementById(boxId);
+            if (!box) return;
+            
+            // Only update banner if this tab is active
+            const isTabActive = (boxId === 'daily-action-box' && activeTabId === 'page-daily') || (boxId === 'ot-action-box' && activeTabId === 'page-overtime');
+            
+            if (isTabActive) banner.className = 'status-banner'; // reset
+
+            switch(status) {
+                case 'NOT_SUBMITTED':
+                    if (isTabActive) { text.innerText = 'Chưa gửi'; }
+                    box.innerHTML = `
+                        <button class="btn btn-primary large shadow-glow" onclick="app.${submitFn}()">
+                            Gửi ${typeStr}
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:8px;vertical-align:middle"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        </button>`;
+                    break;
+                case 'PENDING':
+                    if (isTabActive) { banner.className = 'status-banner pending'; text.innerText = 'Chờ Giám sát duyệt'; }
+                    box.innerHTML = `<button class="btn btn-danger large shadow-glow" onclick="${undoFn}">Thu hồi ${typeStr} (Để sửa)</button>`;
+                    break;
+                case 'REJECTED':
+                    if (isTabActive) { banner.className = 'status-banner pending'; banner.style.background = '#fee2e2'; banner.style.color = '#b91c1c'; text.innerText = 'Bị trả về (Cần sửa lại)'; }
+                    box.innerHTML = `
+                        <button class="btn btn-primary large shadow-glow" onclick="app.${submitFn}()">
+                            Gửi lại ${typeStr}
+                        </button>`;
+                    break;
+                case 'SUPERVISOR_APPROVED':
+                    if (isTabActive) { banner.className = 'status-banner supervisor_approved'; text.innerText = 'Giám sát đã duyệt'; }
+                    box.innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Giám sát đã duyệt)</button>`;
+                    break;
+                case 'PM_APPROVED':
+                    if (isTabActive) { banner.className = 'status-banner pm_approved'; text.innerText = 'Đã chốt thanh toán'; }
+                    box.innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Đã chốt thanh toán)</button>`;
+                    break;
+            }
+        };
+
+        applyStatusToBox(d.dailyStatus, 'daily-action-box', 'Bảng Hành Chính', 'submitDaily', 'app.undoSubmit(\\'daily\\')');
+        applyStatusToBox(d.otStatus, 'ot-action-box', 'Tăng Ca', 'submitOT', 'app.undoSubmit(\\'ot\\')');
+
+        // SumBox text based on both
+        if (d.dailyStatus === 'PENDING' || d.otStatus === 'PENDING') sumBox.innerText = 'Chờ Giám sát duyệt';
+        else if (d.dailyStatus === 'REJECTED' || d.otStatus === 'REJECTED') sumBox.innerText = 'Bị trả về (Cần sửa lại)';
+        else if (d.dailyStatus === 'SUPERVISOR_APPROVED' || d.otStatus === 'SUPERVISOR_APPROVED') sumBox.innerText = 'Giám sát đã duyệt';
+        else if (d.dailyStatus === 'PM_APPROVED' || d.otStatus === 'PM_APPROVED') sumBox.innerText = 'ĐÃ CHỐT';
+        else sumBox.innerText = 'Chưa gửi';
 
         // Hide/Show approval buttons based on status & role
         const btnReject = document.getElementById('btn-reject-supervisor');
         const btnSup = document.getElementById('btn-approve-supervisor');
         const btnPM = document.getElementById('btn-approve-pm');
         
+        const hasPending = (d.dailyStatus === 'PENDING' || d.otStatus === 'PENDING');
+        const hasSupApprove = (d.dailyStatus === 'SUPERVISOR_APPROVED' || d.otStatus === 'SUPERVISOR_APPROVED');
+        
         if(state.role === 'SUPERVISOR') {
-            btnReject.style.display = (d.status === 'PENDING') ? 'inline-block' : 'none';
-            btnSup.style.display = (d.status === 'PENDING') ? 'inline-block' : 'none';
+            btnReject.style.display = hasPending ? 'inline-block' : 'none';
+            btnSup.style.display = hasPending ? 'inline-block' : 'none';
         } else {
             btnReject.style.display = 'none';
             btnSup.style.display = 'none';
         }
 
         if(state.role === 'PM') {
-            btnPM.style.display = (d.status === 'SUPERVISOR_APPROVED') ? 'inline-block' : 'none';
+            btnPM.style.display = hasSupApprove ? 'inline-block' : 'none';
         } else {
             btnPM.style.display = 'none';
         }
