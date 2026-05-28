@@ -26,8 +26,9 @@ const mockWorkers = [
     { id: 'W05', name: 'Hoàng Văn E', role: 'Thợ phụ' }
 ];
 
-// Lấy ngày hiện tại
-const todayStr = new Date().toISOString().split('T')[0];
+// Lấy ngày hiện tại (theo giờ địa phương)
+const dNow = new Date();
+const todayStr = dNow.getFullYear() + '-' + String(dNow.getMonth() + 1).padStart(2, '0') + '-' + String(dNow.getDate()).padStart(2, '0');
 // Lấy ngày đầu tháng
 const firstDayStr = todayStr.slice(0, 8) + '01';
 
