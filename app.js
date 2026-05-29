@@ -15,7 +15,7 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getDatabase(firebaseApp);
 
-const WAGE_PER_HOUR = 50000;
+
 
 const dNow = new Date();
 const todayStr = dNow.getFullYear() + '-' + String(dNow.getMonth() + 1).padStart(2, '0') + '-' + String(dNow.getDate()).padStart(2, '0');
@@ -93,11 +93,11 @@ const app = {
             const data = snapshot.val();
             if (!data || data.length === 0) {
                 const mockWorkers = [
-                    { id: 'W01', name: 'Nguyễn Văn A', role: 'Thợ chính' },
-                    { id: 'W02', name: 'Trần Văn B', role: 'Thợ phụ' },
-                    { id: 'W03', name: 'Lê Thị C', role: 'Thợ phụ' },
-                    { id: 'W04', name: 'Phạm Văn D', role: 'Thợ chính' },
-                    { id: 'W05', name: 'Hoàng Văn E', role: 'Thợ phụ' }
+                    { id: 'W01', name: 'Nguyễn Văn A', role: 'Thợ chính', wage: 60000 },
+                    { id: 'W02', name: 'Trần Văn B', role: 'Thợ phụ', wage: 45000 },
+                    { id: 'W03', name: 'Lê Thị C', role: 'Thợ phụ', wage: 45000 },
+                    { id: 'W04', name: 'Phạm Văn D', role: 'Thợ chính', wage: 60000 },
+                    { id: 'W05', name: 'Hoàng Văn E', role: 'Thợ phụ', wage: 45000 }
                 ];
                 set(ref(db, 'workers'), mockWorkers);
             } else {
@@ -150,7 +150,7 @@ const app = {
                 <div class="worker-row-settings">
                     <div>
                         <strong>${w.name}</strong><br>
-                        <small style="color:#64748b">${w.role}</small>
+                        <small style="color:#64748b">${w.role} - ${(w.wage || 50000).toLocaleString('vi-VN')} đ/h</small>
                     </div>
                     <button class="btn btn-danger" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.deleteWorker(${index})">Xóa</button>
                 </div>
@@ -161,13 +161,15 @@ const app = {
     addWorker() {
         const name = document.getElementById('new-worker-name').value.trim();
         const role = document.getElementById('new-worker-role').value;
+        const wage = parseInt(document.getElementById('new-worker-wage').value) || 50000;
         if(!name) { alert('Vui lòng nhập tên!'); return; }
         
         const newId = 'W' + new Date().getTime(); 
-        const newWorkers = [...state.workers, { id: newId, name: name, role: role }];
+        const newWorkers = [...state.workers, { id: newId, name: name, role: role, wage: wage }];
         set(ref(db, 'workers'), newWorkers);
         
         document.getElementById('new-worker-name').value = '';
+        document.getElementById('new-worker-wage').value = '50000';
     },
 
     deleteWorker(index) {
@@ -188,7 +190,7 @@ const app = {
         let totalReg = 0;
         let totalOT = 0;
         const aggregated = {};
-        state.workers.forEach(w => aggregated[w.id] = { reg: 0, ot: 0, name: w.name, role: w.role });
+        state.workers.forEach(w => aggregated[w.id] = { reg: 0, ot: 0, name: w.name, role: w.role, wage: w.wage || 50000 });
 
         let current = new Date(startStr);
         let end = new Date(endStr);
@@ -208,7 +210,7 @@ const app = {
             ["BẢNG TỔNG HỢP CHẤM CÔNG VÀ THANH TOÁN LƯƠNG"],
             [`Từ ngày: ${startStr} - Đến ngày: ${endStr}`],
             [],
-            ["STT", "Họ và Tên", "Chức danh", "Công Hành chính (Giờ)", "Tăng ca (Giờ)", "Tổng công (Giờ)", "Đơn giá (VNĐ/h)", "Thành tiền (VNĐ)"]
+            ["STT", "Họ và Tên", "Chức danh", "Công Hành chính (Giờ)", "Tăng ca (Giờ)", "Tổng công (Giờ)", "Đơn giá (VNĐ/h)", "Tiền Hành chính", "Tiền Tăng ca (x1.5)", "Tổng cộng (VNĐ)"]
         ];
 
         let stt = 1;
@@ -217,7 +219,9 @@ const app = {
             const rowData = aggregated[w.id];
             if(rowData.reg > 0 || rowData.ot > 0) {
                 const totalHours = rowData.reg + rowData.ot;
-                const money = totalHours * WAGE_PER_HOUR;
+                const moneyReg = rowData.reg * rowData.wage;
+                const moneyOT = rowData.ot * rowData.wage * 1.5;
+                const money = moneyReg + moneyOT;
                 sumMoney += money;
                 data.push([
                     stt++,
@@ -226,20 +230,22 @@ const app = {
                     rowData.reg,
                     rowData.ot,
                     totalHours,
-                    WAGE_PER_HOUR,
+                    rowData.wage,
+                    moneyReg,
+                    moneyOT,
                     money
                 ]);
             }
         });
 
         data.push([]);
-        data.push(["", "", "", "", "", "", "TỔNG CỘNG:", sumMoney]);
+        data.push(["", "", "", "", "", "", "", "", "TỔNG CỘNG:", sumMoney]);
 
         const ws = XLSX.utils.aoa_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Bang_Cong");
         
-        const wscols = [{wch:5}, {wch:25}, {wch:15}, {wch:20}, {wch:15}, {wch:15}, {wch:15}, {wch:20}];
+        const wscols = [{wch:5}, {wch:25}, {wch:15}, {wch:20}, {wch:15}, {wch:15}, {wch:15}, {wch:18}, {wch:18}, {wch:20}];
         ws['!cols'] = wscols;
 
         XLSX.writeFile(wb, `BangCong_${startStr}_${endStr}.xlsx`);
@@ -439,7 +445,7 @@ const app = {
         let totalOT = 0;
         
         const aggregated = {};
-        state.workers.forEach(w => aggregated[w.id] = { reg: 0, ot: 0, name: w.name });
+        state.workers.forEach(w => aggregated[w.id] = { reg: 0, ot: 0, name: w.name, wage: w.wage || 50000 });
 
         let current = new Date(startStr);
         let end = new Date(endStr);
@@ -463,7 +469,9 @@ const app = {
             totalReg += data.reg;
             totalOT += data.ot;
 
-            const personalTotal = (data.reg + data.ot) * WAGE_PER_HOUR;
+            const moneyReg = data.reg * data.wage;
+            const moneyOT = data.ot * data.wage * 1.5;
+            const personalTotal = moneyReg + moneyOT;
             
             if (data.reg > 0 || data.ot > 0) {
                 container.innerHTML += `
@@ -480,7 +488,11 @@ const app = {
             }
         });
 
-        const totalMoney = (totalReg + totalOT) * WAGE_PER_HOUR;
+        let totalMoney = 0;
+        state.workers.forEach(w => {
+            const rowData = aggregated[w.id];
+            totalMoney += (rowData.reg * rowData.wage) + (rowData.ot * rowData.wage * 1.5);
+        });
         
         document.getElementById('sum-regular-hours').innerText = totalReg;
         document.getElementById('sum-ot-hours').innerText = totalOT;

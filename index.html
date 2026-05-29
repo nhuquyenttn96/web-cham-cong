@@ -53,10 +53,13 @@
             
             <div class="add-worker-form">
                 <input type="text" id="new-worker-name" class="input-modern" placeholder="Tên công nhân" style="margin-bottom: 10px;">
-                <select id="new-worker-role" class="input-modern" style="margin-bottom: 10px;">
-                    <option value="Thợ chính">Thợ chính</option>
-                    <option value="Thợ phụ">Thợ phụ</option>
-                </select>
+                <div style="display:flex; gap: 10px; margin-bottom: 10px;">
+                    <select id="new-worker-role" class="input-modern" style="flex:1;">
+                        <option value="Thợ chính">Thợ chính</option>
+                        <option value="Thợ phụ">Thợ phụ</option>
+                    </select>
+                    <input type="number" id="new-worker-wage" class="input-modern" placeholder="Lương (VNĐ/h)" style="flex:1;" value="50000">
+                </div>
                 <button class="btn btn-primary shadow-glow" style="width:100%; margin-bottom: 20px;" onclick="app.addWorker()">+ Thêm Người</button>
             </div>
 
@@ -199,7 +202,7 @@
         </nav>
     </div>
     
-    <script type="module" src="app.js?v=3"></script>
+    <script type="module" src="app.js?v=4"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
