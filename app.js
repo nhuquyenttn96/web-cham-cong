@@ -93,11 +93,11 @@ const app = {
             const data = snapshot.val();
             if (!data || data.length === 0) {
                 const mockWorkers = [
-                    { id: 'W01', name: 'Nguyễn Văn A', role: 'Thợ chính', wage: 60000 },
-                    { id: 'W02', name: 'Trần Văn B', role: 'Thợ phụ', wage: 45000 },
-                    { id: 'W03', name: 'Lê Thị C', role: 'Thợ phụ', wage: 45000 },
-                    { id: 'W04', name: 'Phạm Văn D', role: 'Thợ chính', wage: 60000 },
-                    { id: 'W05', name: 'Hoàng Văn E', role: 'Thợ phụ', wage: 45000 }
+                    { id: 'W01', name: 'Nguyễn Văn A', role: 'Thợ chính', wage: 60000, isActive: true },
+                    { id: 'W02', name: 'Trần Văn B', role: 'Thợ phụ', wage: 45000, isActive: true },
+                    { id: 'W03', name: 'Lê Thị C', role: 'Thợ phụ', wage: 45000, isActive: true },
+                    { id: 'W04', name: 'Phạm Văn D', role: 'Thợ chính', wage: 60000, isActive: true },
+                    { id: 'W05', name: 'Hoàng Văn E', role: 'Thợ phụ', wage: 45000, isActive: true }
                 ];
                 set(ref(db, 'workers'), mockWorkers);
             } else {
@@ -146,13 +146,19 @@ const app = {
         if(!container) return;
         container.innerHTML = '';
         state.workers.forEach((w, index) => {
+            const isInactive = w.isActive === false;
+            const opacity = isInactive ? '0.5' : '1';
+            const btnHtml = isInactive 
+                ? `<button class="btn btn-success" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.restoreWorker(${index})">Khôi phục</button>`
+                : `<button class="btn btn-danger" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.deleteWorker(${index})">Cho nghỉ</button>`;
+
             container.innerHTML += `
-                <div class="worker-row-settings">
+                <div class="worker-row-settings" style="opacity: ${opacity};">
                     <div>
-                        <strong>${w.name}</strong><br>
+                        <strong>${w.name} ${isInactive ? '<span style="color:#ef4444; font-size:0.8rem;">(Đã nghỉ)</span>' : ''}</strong><br>
                         <small style="color:#64748b">${w.role} - ${(w.wage || 50000).toLocaleString('vi-VN')} đ/h</small>
                     </div>
-                    <button class="btn btn-danger" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.deleteWorker(${index})">Xóa</button>
+                    ${btnHtml}
                 </div>
             `;
         });
@@ -165,7 +171,7 @@ const app = {
         if(!name) { alert('Vui lòng nhập tên!'); return; }
         
         const newId = 'W' + new Date().getTime(); 
-        const newWorkers = [...state.workers, { id: newId, name: name, role: role, wage: wage }];
+        const newWorkers = [...state.workers, { id: newId, name: name, role: role, wage: wage, isActive: true }];
         set(ref(db, 'workers'), newWorkers);
         
         document.getElementById('new-worker-name').value = '';
@@ -173,9 +179,79 @@ const app = {
     },
 
     deleteWorker(index) {
-        if(!confirm(`Xóa công nhân ${state.workers[index].name}?`)) return;
-        const newWorkers = state.workers.filter((_, i) => i !== index);
+        if(!confirm(`Báo nghỉ việc đối với công nhân ${state.workers[index].name}? (Vẫn sẽ được tính lương trong quá khứ)`)) return;
+        const newWorkers = [...state.workers];
+        newWorkers[index].isActive = false;
         set(ref(db, 'workers'), newWorkers);
+    },
+
+    restoreWorker(index) {
+        if(!confirm(`Khôi phục làm việc đối với công nhân ${state.workers[index].name}?`)) return;
+        const newWorkers = [...state.workers];
+        newWorkers[index].isActive = true;
+        set(ref(db, 'workers'), newWorkers);
+    },
+
+    downloadTemplate() {
+        if(!window.XLSX) { alert("Đang tải thư viện Excel, vui lòng thử lại sau."); return; }
+        const data = [
+            ["Họ và Tên", "Chức danh", "Lương"],
+            ["Nguyễn Văn A", "Thợ chính", 60000],
+            ["Trần Văn B", "Thợ phụ", 45000]
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "DanhSach");
+        XLSX.writeFile(wb, `Mau_Nhap_Cong_Nhan.xlsx`);
+    },
+
+    importExcel(event) {
+        const file = event.target.files[0];
+        if(!file) return;
+        
+        if(!window.XLSX) { alert("Thư viện Excel chưa sẵn sàng!"); return; }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = e.target.result;
+            const wb = XLSX.read(data, {type: 'binary'});
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(ws);
+            
+            if(json.length === 0) { alert("File trống!"); return; }
+            if(json[0]['Họ và Tên'] === undefined || json[0]['Chức danh'] === undefined || json[0]['Lương'] === undefined) {
+                alert("File Excel không đúng định dạng. Vui lòng tải file mẫu và nhập theo đúng tên cột!");
+                return;
+            }
+
+            if(!confirm(`Phát hiện ${json.length} người trong file Excel. Tiến hành đồng bộ? (Những người trên hệ thống không có trong file này sẽ bị chuyển sang trạng thái Đã Nghỉ Việc)`)) return;
+
+            let newWorkers = [...state.workers];
+            // Đặt tất cả thành Inactive tạm thời
+            newWorkers.forEach(w => w.isActive = false);
+
+            json.forEach(row => {
+                const name = row['Họ và Tên'] ? row['Họ và Tên'].toString().trim() : '';
+                if(!name) return;
+                const role = row['Chức danh'] ? row['Chức danh'].toString().trim() : 'Thợ phụ';
+                const wage = parseInt(row['Lương']) || 50000;
+                
+                const existingIndex = newWorkers.findIndex(w => w.name.toLowerCase() === name.toLowerCase());
+                if(existingIndex >= 0) {
+                    newWorkers[existingIndex].isActive = true;
+                    newWorkers[existingIndex].role = role;
+                    newWorkers[existingIndex].wage = wage;
+                } else {
+                    const newId = 'W' + new Date().getTime() + Math.floor(Math.random() * 1000);
+                    newWorkers.push({ id: newId, name: name, role: role, wage: wage, isActive: true });
+                }
+            });
+
+            set(ref(db, 'workers'), newWorkers);
+            alert("Đã đồng bộ danh sách nhân sự thành công!");
+            document.getElementById('excel-upload').value = '';
+        };
+        reader.readAsBinaryString(file);
     },
 
     exportExcel() {
@@ -290,6 +366,9 @@ const app = {
 
         state.workers.forEach(w => {
             const currentVal = dateData.dailyData[w.id] || 0;
+            // Ẩn nếu đã nghỉ việc VÀ không có chấm công ngày hôm đó
+            if (w.isActive === false && currentVal === 0) return;
+            
             if(currentVal > 0) totalPresent++;
             
             const initials = w.name.split(' ').map(n=>n[0]).join('').substring(0,2);
