@@ -1152,19 +1152,23 @@ const app = {
         let totalEarned = 0;
         for (let dateStr in state.history) {
             const d = state.history[dateStr];
-            if (d.dailyStatus === 'PM_APPROVED' || d.dailyStatus === 'SUPERVISOR_APPROVED') {
+            
+            // Tính tiền Hành chính
+            if (d.dailyData) {
                 for (let wId in d.dailyData) {
                     const w = state.workers.find(x => x.id === wId);
                     if (w && d.dailyData[wId]) {
-                        totalEarned += (d.dailyData[wId] / 8) * w.wage;
+                        totalEarned += d.dailyData[wId] * w.wage;
                     }
                 }
             }
-            if (d.otStatus === 'PM_APPROVED' || d.otStatus === 'SUPERVISOR_APPROVED') {
+            
+            // Tính tiền Tăng ca
+            if (d.otData) {
                 for (let wId in d.otData) {
                     const w = state.workers.find(x => x.id === wId);
                     if (w && d.otData[wId]) {
-                        totalEarned += d.otData[wId] * (w.wage / 8 * 1.5);
+                        totalEarned += d.otData[wId] * (w.wage * 1.5);
                     }
                 }
             }
