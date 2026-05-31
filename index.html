@@ -69,12 +69,14 @@
             </div>
 
             <!-- ACCOUNT MANAGEMENT (PM ONLY) -->
-            <div class="action-pm-only" style="width:100%;">
-                <div style="width:100%; display:flex; flex-direction:column; gap: 10px; margin-bottom: 20px; padding: 15px; background: #fdf4ff; border-radius: 12px; border: 1px dashed #e879f9; box-sizing:border-box;">
-                    <h3 style="font-size:0.9rem; color:#86198f; margin:0; display:flex; justify-content:space-between; align-items:center;">
-                        Quản lý Tài Khoản & Đội Khoán
-                        <button class="btn btn-primary" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.showAddAccountModal()">+ Thêm Mới</button>
-                    </h3>
+            <div id="account-management-section" style="display:none; margin-top: 20px; border-top: 2px dashed #e2e8f0; padding-top: 20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h3 style="font-size:0.95rem; color:var(--primary-dark); margin:0;">Quản Lý Tài Khoản & Đội Khoán</h3>
+                    <div style="display:flex; gap: 5px;">
+                        <button class="btn btn-warning" style="padding: 4px 10px; font-size: 0.8rem;" onclick="app.seedWorkers()">+ Tạo Dữ Liệu Mẫu</button>
+                        <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="app.showAddAccountModal()">+ Thêm Mới</button>
+                    </div>
+                </div>
                     <div id="settings-account-list" style="max-height: 200px; overflow-y:auto; font-size:0.85rem; border-top: 1px solid #f5d0fe; padding-top: 10px;">
                         <!-- JS Render -->
                     </div>
