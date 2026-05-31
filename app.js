@@ -237,9 +237,36 @@ const app = {
                         <strong>${acc.name}</strong><br>
                         <small style="color:#64748b">${acc.role === 'PM' ? 'Quản lý' : acc.role === 'SUPERVISOR' ? 'Giám sát' : 'Đội trưởng'} | PIN: <span style="font-family:monospace; background:#e2e8f0; padding:2px 4px; border-radius:4px;">${acc.pin}</span></small>
                     </div>
-                    ${acc.role !== 'PM' ? `<button class="btn btn-danger" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.deleteAccount(${index})">Xóa</button>` : ''}
+                    ${acc.role !== 'PM' ? `
+                    <div style="display:flex; gap: 5px;">
+                        <button class="btn btn-warning" style="padding: 4px 8px; font-size:0.75rem;" onclick="app.editAccount(${index})">Sửa</button>
+                        <button class="btn btn-danger" style="padding: 4px 8px; font-size:0.75rem;" onclick="app.deleteAccount(${index})">Xóa</button>
+                    </div>` : ''}
                 </div>
             `;
+        });
+    },
+
+    editAccount(index) {
+        const acc = state.accounts[index];
+        const newName = prompt("Nhập Tên mới cho tài khoản:", acc.name);
+        if (newName === null) return;
+        const newPin = prompt("Nhập Mã PIN mới (Mật khẩu):", acc.pin);
+        if (newPin === null) return;
+        
+        if (newName.trim() === '' || newPin.trim() === '') {
+            alert("Tên và PIN không được để trống!");
+            return;
+        }
+
+        const newAccounts = [...state.accounts];
+        newAccounts[index].name = newName.trim();
+        newAccounts[index].pin = newPin.trim();
+        
+        set(ref(db, 'accounts'), newAccounts).then(() => {
+            alert('Cập nhật tài khoản thành công!');
+        }).catch(e => {
+            alert('Lỗi cập nhật: ' + e.message);
         });
     },
 
