@@ -931,6 +931,26 @@ const app = {
         }
     },
 
+    resetDayData() {
+        if(!confirm(`CẢNH BÁO: Hành động này sẽ XÓA SẠCH toàn bộ số giờ làm và trả bảng công ngày ${state.currentDate} về trạng thái Chưa Gửi. Bạn có chắc chắn muốn Reset không?`)) return;
+        
+        const d = state.history[state.currentDate];
+        if (d) {
+            d.dailyStatus = 'NOT_SUBMITTED';
+            d.otStatus = 'NOT_SUBMITTED';
+            d.approvedBy = '';
+            d.approvedAt = '';
+            for (let wId in d.dailyData) {
+                d.dailyData[wId] = 0;
+            }
+            for (let wId in d.otData) {
+                d.otData[wId] = 0;
+            }
+            this.saveToFirebase(state.currentDate);
+            alert("Đã reset toàn bộ dữ liệu ngày này thành công!");
+        }
+    },
+
     updateStatusUI() {
         if(!state.currentUser) return;
         
@@ -1006,10 +1026,14 @@ const app = {
             btnSup.style.display = 'none';
         }
 
+        const btnResetPM = document.getElementById('btn-reset-pm');
+        
         if(state.currentUser.role === 'PM') {
             btnPM.style.display = hasSupApprove ? 'inline-block' : 'none';
+            if (btnResetPM) btnResetPM.style.display = 'inline-block';
         } else {
             btnPM.style.display = 'none';
+            if (btnResetPM) btnResetPM.style.display = 'none';
         }
     }
 };
