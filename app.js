@@ -1221,7 +1221,7 @@ const app = {
                     </div>
                     ${state.currentUser.role === 'PM' ? `
                     <div style="display:flex; flex-direction:column; gap:5px;">
-                        <button class="btn btn-warning" style="padding:5px 10px; font-size:0.8rem;" onclick="app.editPayment('${p.id}')">Cập nhật thanh toán</button>
+                        <button class="btn btn-success" style="padding:5px 10px; font-size:0.8rem;" onclick="app.editPayment('${p.id}')">Cập nhật thanh toán</button>
                         <button class="btn btn-danger" style="padding:5px 10px; font-size:0.8rem;" onclick="app.deletePayment('${p.id}')">Xóa</button>
                     </div>
                     ` : ''}
