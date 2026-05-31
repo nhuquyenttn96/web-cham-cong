@@ -30,9 +30,11 @@ const state = {
     summaryEndDate: todayStr,
     history: {},
     workers: [],
+    payments: [],
 
     unsubscribeWorkers: null,
-    unsubscribeHistory: null
+    unsubscribeHistory: null,
+    unsubscribePayments: null
 };
 
 function ensureDateData(dateStr) {
@@ -167,9 +169,11 @@ const app = {
 
         if (state.unsubscribeWorkers) state.unsubscribeWorkers();
         if (state.unsubscribeHistory) state.unsubscribeHistory();
+        if (state.unsubscribePayments) state.unsubscribePayments();
 
         state.history = {};
         state.workers = [];
+        state.payments = [];
 
         document.getElementById('date-picker-daily').value = state.currentDate;
         document.getElementById('summary-start').value = state.summaryStartDate;
@@ -188,6 +192,7 @@ const app = {
             this.renderOT();
             this.renderSummary();
             this.renderWorkerSettings();
+            this.renderPaymentTab();
         });
 
         const historyRef = ref(db, `teams/${state.currentTeam}/history`);
@@ -211,6 +216,19 @@ const app = {
             this.renderOT();
             this.renderSummary();
             this.updateStatusUI();
+            this.renderPaymentTab();
+        });
+
+        const paymentsRef = ref(db, `teams/${state.currentTeam}/payments`);
+        state.unsubscribePayments = onValue(paymentsRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                state.payments = Array.isArray(data) ? data.filter(p=>p) : Object.values(data);
+                state.payments.sort((a,b) => b.createdAt - a.createdAt);
+            } else {
+                state.payments = [];
+            }
+            this.renderPaymentTab();
         });
     },
 
@@ -925,9 +943,9 @@ const app = {
         
         if (changed) {
             this.saveToFirebase(state.currentDate);
-            alert('Đã chốt thanh toán ngày ' + state.currentDate + '!');
+            alert('Quản lý đã duyệt bảng công ngày ' + state.currentDate + '!');
         } else {
-            alert('Phải chờ Giám sát duyệt trước, hoặc đã chốt rồi.');
+            alert('Phải chờ Giám sát duyệt trước, hoặc đã duyệt rồi.');
         }
     },
 
@@ -996,8 +1014,8 @@ const app = {
                     box.innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Giám sát đã duyệt)</button>`;
                     break;
                 case 'PM_APPROVED':
-                    if (isTabActive) { banner.className = 'status-banner pm_approved'; text.innerText = 'Đã chốt thanh toán'; }
-                    box.innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Đã chốt thanh toán)</button>`;
+                    if (isTabActive) { banner.className = 'status-banner pm_approved'; text.innerText = 'Quản lý đã duyệt'; }
+                    box.innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Quản lý đã duyệt)</button>`;
                     break;
             }
         };
@@ -1008,7 +1026,7 @@ const app = {
         if (d.dailyStatus === 'PENDING' || d.otStatus === 'PENDING') sumBox.innerText = 'Chờ Giám sát duyệt';
         else if (d.dailyStatus === 'REJECTED' || d.otStatus === 'REJECTED') sumBox.innerText = 'Bị trả về (Cần sửa lại)';
         else if (d.dailyStatus === 'SUPERVISOR_APPROVED' || d.otStatus === 'SUPERVISOR_APPROVED') sumBox.innerText = 'Giám sát đã duyệt';
-        else if (d.dailyStatus === 'PM_APPROVED' || d.otStatus === 'PM_APPROVED') sumBox.innerText = 'ĐÃ CHỐT';
+        else if (d.dailyStatus === 'PM_APPROVED' || d.otStatus === 'PM_APPROVED') sumBox.innerText = 'QUẢN LÝ DUYỆT';
         else sumBox.innerText = 'Chưa gửi';
 
         const btnReject = document.getElementById('btn-reject-supervisor');
@@ -1034,6 +1052,136 @@ const app = {
         } else {
             btnPM.style.display = 'none';
             if (btnResetPM) btnResetPM.style.display = 'none';
+        }
+    },
+
+    renderPaymentTab() {
+        if (!state.currentTeam) return;
+
+        let totalEarned = 0;
+        for (let dateStr in state.history) {
+            const d = state.history[dateStr];
+            if (d.dailyStatus === 'PM_APPROVED' || d.dailyStatus === 'SUPERVISOR_APPROVED') {
+                for (let wId in d.dailyData) {
+                    const w = state.workers.find(x => x.id === wId);
+                    if (w && d.dailyData[wId]) {
+                        totalEarned += (d.dailyData[wId] / 8) * w.wage;
+                    }
+                }
+            }
+            if (d.otStatus === 'PM_APPROVED' || d.otStatus === 'SUPERVISOR_APPROVED') {
+                for (let wId in d.otData) {
+                    const w = state.workers.find(x => x.id === wId);
+                    if (w && d.otData[wId]) {
+                        totalEarned += d.otData[wId] * (w.wage / 8 * 1.5);
+                    }
+                }
+            }
+        }
+
+        let totalRequested = 0;
+        let totalPaid = 0;
+
+        const listDiv = document.getElementById('payment-list');
+        listDiv.innerHTML = '';
+
+        if (state.payments.length === 0) {
+            listDiv.innerHTML = '<div class="empty-state">Chưa có đợt trình thanh toán nào.</div>';
+        } else {
+            state.payments.forEach(p => {
+                totalRequested += (Number(p.requestedAmount) || 0);
+                totalPaid += (Number(p.paidAmount) || 0);
+                
+                const owed = (Number(p.requestedAmount) || 0) - (Number(p.paidAmount) || 0);
+                const isPaidFull = owed <= 0 && p.requestedAmount > 0;
+
+                const card = document.createElement('div');
+                card.className = 'worker-card';
+                card.innerHTML = `
+                    <div style="flex:1;">
+                        <div style="font-weight:bold; font-size:1.05rem;">${p.note || 'Không có ghi chú'}</div>
+                        <div style="font-size:0.85rem; color:#64748b; margin-top:2px;">Tạo ngày: ${new Date(p.createdAt).toLocaleDateString('vi-VN')}</div>
+                        <div style="margin-top:8px; display:grid; grid-template-columns: 1fr 1fr; gap:5px; font-size:0.9rem;">
+                            <div>Trình lên: <strong style="color:#2563eb">${Number(p.requestedAmount).toLocaleString('vi-VN')}</strong></div>
+                            <div>Đã nhận: <strong style="color:#16a34a">${Number(p.paidAmount).toLocaleString('vi-VN')}</strong></div>
+                        </div>
+                        <div style="margin-top:4px; font-size:0.9rem;">
+                            Còn nợ: <strong style="color:${isPaidFull ? '#16a34a' : '#dc2626'}">${owed.toLocaleString('vi-VN')}</strong>
+                        </div>
+                    </div>
+                    ${state.currentUser.role === 'PM' ? `
+                    <div style="display:flex; flex-direction:column; gap:5px;">
+                        <button class="btn btn-warning" style="padding:5px 10px; font-size:0.8rem;" onclick="app.editPayment('${p.id}')">Sửa</button>
+                        <button class="btn btn-danger" style="padding:5px 10px; font-size:0.8rem;" onclick="app.deletePayment('${p.id}')">Xóa</button>
+                    </div>
+                    ` : ''}
+                `;
+                listDiv.appendChild(card);
+            });
+        }
+
+        const totalOwed = totalRequested - totalPaid;
+
+        document.getElementById('pay-total-earned').innerText = Math.round(totalEarned).toLocaleString('vi-VN');
+        document.getElementById('pay-total-requested').innerText = totalRequested.toLocaleString('vi-VN');
+        document.getElementById('pay-total-paid').innerText = totalPaid.toLocaleString('vi-VN');
+        document.getElementById('pay-total-owed').innerText = totalOwed.toLocaleString('vi-VN');
+    },
+
+    openPaymentModal() {
+        document.getElementById('pay-req-id').value = '';
+        document.getElementById('pay-req-note').value = '';
+        document.getElementById('pay-req-amount').value = '';
+        document.getElementById('pay-paid-amount').value = '0';
+        document.getElementById('pay-paid-group').style.display = 'none';
+        document.getElementById('payment-modal-title').innerText = 'Trình Thanh Toán Mới';
+        document.getElementById('payment-modal').classList.add('active');
+    },
+
+    editPayment(id) {
+        const p = state.payments.find(x => x.id === id);
+        if (!p) return;
+        document.getElementById('pay-req-id').value = p.id;
+        document.getElementById('pay-req-note').value = p.note || '';
+        document.getElementById('pay-req-amount').value = p.requestedAmount || 0;
+        document.getElementById('pay-paid-amount').value = p.paidAmount || 0;
+        document.getElementById('pay-paid-group').style.display = 'block';
+        document.getElementById('payment-modal-title').innerText = 'Cập nhật Thanh Toán';
+        document.getElementById('payment-modal').classList.add('active');
+    },
+
+    savePaymentRequest() {
+        const id = document.getElementById('pay-req-id').value;
+        const note = document.getElementById('pay-req-note').value.trim();
+        const reqAmountStr = document.getElementById('pay-req-amount').value.replace(/[,.]/g, '');
+        const paidAmountStr = document.getElementById('pay-paid-amount').value.replace(/[,.]/g, '');
+        const reqAmount = parseInt(reqAmountStr) || 0;
+        const paidAmount = parseInt(paidAmountStr) || 0;
+
+        if (reqAmount <= 0) {
+            alert('Số tiền trình phải lớn hơn 0!');
+            return;
+        }
+
+        const payId = id || ('pay_' + Date.now());
+        const obj = {
+            id: payId,
+            note: note,
+            requestedAmount: reqAmount,
+            paidAmount: paidAmount,
+            createdAt: id ? state.payments.find(x=>x.id===id).createdAt : Date.now()
+        };
+
+        set(ref(db, `teams/${state.currentTeam}/payments/${payId}`), obj).then(() => {
+            document.getElementById('payment-modal').classList.remove('active');
+        }).catch(err => {
+            alert('Lỗi: ' + err.message);
+        });
+    },
+
+    deletePayment(id) {
+        if(confirm('Bạn có chắc chắn muốn xóa đợt thanh toán này không?')) {
+            set(ref(db, `teams/${state.currentTeam}/payments/${id}`), null);
         }
     }
 };
