@@ -1150,6 +1150,9 @@ const app = {
         if (!state.currentTeam) return;
 
         let totalEarned = 0;
+        let totalRegHours = 0;
+        let totalOTHours = 0;
+        
         for (let dateStr in state.history) {
             const d = state.history[dateStr];
             
@@ -1159,6 +1162,7 @@ const app = {
                     const w = state.workers.find(x => x.id === wId);
                     if (w && d.dailyData[wId]) {
                         totalEarned += d.dailyData[wId] * w.wage;
+                        totalRegHours += d.dailyData[wId];
                     }
                 }
             }
@@ -1169,10 +1173,19 @@ const app = {
                     const w = state.workers.find(x => x.id === wId);
                     if (w && d.otData[wId]) {
                         totalEarned += d.otData[wId] * (w.wage * 1.5);
+                        totalOTHours += d.otData[wId];
                     }
                 }
             }
         }
+        
+        const regDays = (totalRegHours / 8);
+        const otDays = (totalOTHours / 8);
+        const totalDays = regDays + otDays;
+        
+        document.getElementById('pay-total-days').innerText = totalDays.toLocaleString('vi-VN') + " ngày";
+        document.getElementById('pay-reg-days').innerText = regDays.toLocaleString('vi-VN');
+        document.getElementById('pay-ot-days').innerText = otDays.toLocaleString('vi-VN');
 
         let totalRequested = 0;
         let totalPaid = 0;

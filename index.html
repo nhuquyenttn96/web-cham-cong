@@ -233,20 +233,31 @@
             <section id="page-payment" class="page">
                 <div class="stats-row" style="margin-bottom: 15px; flex-wrap: wrap;">
                     <div class="stat-card" style="flex:1; min-width: 45%;">
+                        <div class="stat-title">TỔNG CÔNG (NGÀY)</div>
+                        <div class="stat-value" id="pay-total-days" style="color: #f59e0b">0</div>
+                        <div style="font-size: 0.8rem; color: #64748b; margin-top: 5px;">
+                            HC: <strong id="pay-reg-days">0</strong> | TC: <strong id="pay-ot-days">0</strong>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="flex:1; min-width: 45%;">
                         <div class="stat-title">TỔNG TIỀN ĐÃ LÀM</div>
                         <div class="stat-value" id="pay-total-earned" style="color: #2563eb">0</div>
+                        <div style="font-size: 0.8rem; color: transparent; margin-top: 5px;">-</div>
                     </div>
                     <div class="stat-card" style="flex:1; min-width: 45%;">
                         <div class="stat-title">TỔNG ĐÃ TRÌNH</div>
                         <div class="stat-value" id="pay-total-requested">0</div>
+                        <div style="font-size: 0.8rem; color: transparent; margin-top: 5px;">-</div>
                     </div>
                     <div class="stat-card" style="flex:1; min-width: 45%;">
                         <div class="stat-title">ĐÃ ĐƯỢC TRẢ</div>
                         <div class="stat-value" id="pay-total-paid" style="color: #16a34a">0</div>
+                        <div style="font-size: 0.8rem; color: transparent; margin-top: 5px;">-</div>
                     </div>
                     <div class="stat-card" style="flex:1; background: #fee2e2; min-width: 45%;">
                         <div class="stat-title">CÔNG TY CÒN NỢ</div>
                         <div class="stat-value" id="pay-total-owed" style="color: #dc2626">0</div>
+                        <div style="font-size: 0.8rem; color: transparent; margin-top: 5px;">-</div>
                     </div>
                 </div>
 
@@ -343,7 +354,7 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=21"></script>
+    <script type="module" src="app.js?v=22"></script>
     <script>
         function togglePin() {
             const p = document.getElementById('login-pin');
