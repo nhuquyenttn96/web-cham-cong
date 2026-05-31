@@ -18,12 +18,10 @@
 <body>
     <!-- LOGIN OVERLAY -->
     <div id="login-overlay" class="modal-overlay active">
-        <div class="login-card">
-            <div class="brand" style="justify-content:center; margin-bottom: 20px;">
-                <div class="brand-icon" style="width:40px;height:40px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
-                </div>
-                <h1 style="font-size:2rem;">HIREE</h1>
+        <div class="login-card" style="max-width: 400px; width: 90%;">
+            <div style="display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:20px;">
+                <img src="logo-hiree.png" alt="Logo" style="width:48px; height:48px; object-fit:contain;">
+                <h1 style="color:var(--primary-dark); font-size:1.8rem; font-family:'Outfit', sans-serif; margin:0; line-height:1;">HIREE</h1>
             </div>
             <h2 class="outfit-font" style="text-align:center; margin-bottom: 20px;">Đăng Nhập</h2>
             
@@ -55,15 +53,19 @@
             </div>
             
             <div class="add-worker-form">
-                <input type="text" id="new-worker-name" class="input-modern" placeholder="Tên công nhân" style="margin-bottom: 10px;">
-                <div style="display:flex; gap: 10px; margin-bottom: 10px;">
-                    <select id="new-worker-role" class="input-modern" style="flex:1;">
-                        <option value="Thợ chính">Thợ chính</option>
-                        <option value="Thợ phụ">Thợ phụ</option>
-                    </select>
-                    <input type="number" id="new-worker-wage" class="input-modern" placeholder="Lương (VNĐ/h)" style="flex:1;" value="50000">
-                </div>
-                <button class="btn btn-primary shadow-glow" style="width:100%; margin-bottom: 20px;" onclick="app.addWorker()">+ Thêm Người</button>
+                    <div class="form-group" style="display:flex; gap:10px; margin-bottom: 10px;">
+                        <input type="text" id="worker-name" class="input-modern" style="flex:2" placeholder="Tên công nhân">
+                        <select id="worker-role" class="input-modern" style="flex:1.5; padding: 12px 8px;">
+                            <option value="Thợ chính">Thợ chính</option>
+                            <option value="Thợ phụ">Thợ phụ</option>
+                        </select>
+                        <input type="number" id="worker-wage" class="input-modern" style="flex:1.5" placeholder="Lương/ngày">
+                    </div>
+                    <div id="pm-team-selector-container" class="form-group" style="display:none; margin-bottom: 15px;">
+                        <select id="pm-worker-team" class="input-modern" style="width: 100%; padding: 10px;">
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" style="width:100%" onclick="app.addWorker()">+ Thêm Người</button>
             </div>
 
             <!-- ACCOUNT MANAGEMENT (PM ONLY) -->
@@ -101,10 +103,11 @@
         <!-- HEADER -->
         <header class="premium-header">
             <div class="header-top">
-                <div class="logo">
-                    <img src="logo-hiree.png" alt="HIREECO Logo">
+                <div class="brand">
+                    <img src="logo-hiree.png" alt="HIREECO Logo" style="width:40px; height:40px; object-fit:contain;">
                     <div style="display:flex; flex-direction:column; justify-content:center;">
-                        <h1 style="line-height: 1;">HIREECO</h1>
+                        <h1 style="line-height: 1.1; margin:0;">HIREECO</h1>
+                        <p id="user-display" style="color:var(--primary-light); font-size:0.8rem; margin:0; font-weight:600;"></p>
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
@@ -117,10 +120,10 @@
                 </div>
             </div>
             
-            <div class="header-sub" style="display:flex; justify-content:center; align-items:center; padding: 10px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; position: relative; min-height: 45px;">
-                <div id="role-display" style="font-weight: 700; font-size: 1.05rem; color: var(--primary-dark); text-align: center;">Đội Nguyễn Văn A</div>
+            <div class="header-sub" style="display:flex; justify-content:space-between; align-items:center; padding: 10px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; min-height: 45px;">
+                <div id="role-display" style="font-weight: 700; font-size: 1.05rem; color: var(--primary-dark);">Đội Nguyễn Văn A</div>
                 
-                <div class="action-supervisor-only action-pm-only" style="position: absolute; right: 15px;">
+                <div class="action-supervisor-only action-pm-only">
                     <select id="team-switcher" class="input-modern" style="padding: 4px 8px; font-size: 0.85rem; font-weight: bold; width: auto; max-width: 140px; height: 32px; border-radius: 8px; border-color: #cbd5e1; background-color: white;" onchange="app.switchTeam(this.value)">
                     </select>
                 </div>
@@ -266,7 +269,7 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=9"></script>
+    <script type="module" src="app.js?v=10"></script>
     <script>
         function togglePin() {
             const p = document.getElementById('login-pin');

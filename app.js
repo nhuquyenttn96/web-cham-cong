@@ -84,6 +84,9 @@ const app = {
                 if(state.currentUser && state.currentUser.role !== 'LEADER') {
                     this.renderTeamSwitcher();
                 }
+                if(state.currentUser) {
+                   document.getElementById('user-display').innerText = state.currentUser.name;
+                }
             }
         });
     },
@@ -281,7 +284,26 @@ const app = {
         document.getElementById('worker-modal').classList.add('active');
         this.renderWorkerSettings();
         if(state.currentUser && state.currentUser.role === 'PM') {
+            document.getElementById('account-management-section').style.display = 'block';
             this.renderAccountSettings();
+            
+            const pmTeamSel = document.getElementById('pm-worker-team');
+            if(pmTeamSel) {
+                pmTeamSel.innerHTML = '';
+                state.accounts.filter(a => a.role === 'LEADER').forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.teamId;
+                    opt.textContent = t.name;
+                    if(t.teamId === state.currentTeam) opt.selected = true;
+                    pmTeamSel.appendChild(opt);
+                });
+                document.getElementById('pm-team-selector-container').style.display = 'block';
+            }
+        } else {
+            document.getElementById('account-management-section').style.display = 'none';
+            if(document.getElementById('pm-team-selector-container')) {
+                document.getElementById('pm-team-selector-container').style.display = 'none';
+            }
         }
     },
 
@@ -313,17 +335,41 @@ const app = {
     },
 
     addWorker() {
-        const name = document.getElementById('new-worker-name').value.trim();
-        const role = document.getElementById('new-worker-role').value;
-        const wage = parseInt(document.getElementById('new-worker-wage').value) || 50000;
+        const nameInput = document.getElementById('worker-name');
+        const roleInput = document.getElementById('worker-role');
+        const wageInput = document.getElementById('worker-wage');
+        
+        if (!nameInput || !wageInput) {
+            alert('Lỗi giao diện thêm người!');
+            return;
+        }
+
+        const name = nameInput.value.trim();
+        const role = roleInput.value;
+        const wage = parseInt(wageInput.value) || 500000;
         if(!name) { alert('Vui lòng nhập tên!'); return; }
         
+        let targetTeamId = state.currentTeam;
+        if(state.currentUser && state.currentUser.role === 'PM') {
+            const pmSel = document.getElementById('pm-worker-team');
+            if(pmSel && pmSel.value) targetTeamId = pmSel.value;
+        }
+
         const newId = 'W' + new Date().getTime(); 
-        const newWorkers = [...state.workers, { id: newId, name: name, role: role, wage: wage, isActive: true }];
-        set(ref(db, `teams/${state.currentTeam}/workers`), newWorkers);
         
-        document.getElementById('new-worker-name').value = '';
-        document.getElementById('new-worker-wage').value = '50000';
+        // Push direct to Firebase to avoid state sync issues across teams
+        const { ref, get, set } = window.firebaseModules;
+        const workersRef = ref(db, `teams/${targetTeamId}/workers`);
+        
+        get(workersRef).then((snapshot) => {
+            const currentWorkers = snapshot.val() || [];
+            const newWorkers = [...currentWorkers, { id: newId, name: name, role: role, wage: wage, isActive: true }];
+            set(workersRef, newWorkers).then(() => {
+                alert('Thêm công nhân thành công!');
+                nameInput.value = '';
+                wageInput.value = '';
+            });
+        });
     },
 
     deleteWorker(index) {
@@ -351,6 +397,23 @@ const app = {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "DanhSach");
         XLSX.writeFile(wb, `Mau_Nhap_Cong_Nhan.xlsx`);
+    },
+
+    seedWorkers() {
+        const dummyA = [
+            { id: 'W1', name: 'Trần Văn Phụ', role: 'Thợ phụ', wage: 300000, isActive: true },
+            { id: 'W2', name: 'Lê Văn Chính', role: 'Thợ chính', wage: 500000, isActive: true }
+        ];
+        const dummyB = [
+            { id: 'W3', name: 'Phạm Thị Thợ', role: 'Thợ chính', wage: 550000, isActive: true },
+            { id: 'W4', name: 'Hoàng Văn Hồ', role: 'Thợ phụ', wage: 350000, isActive: true }
+        ];
+        const teamA = state.accounts.find(a => a.pin === '111');
+        const teamB = state.accounts.find(a => a.pin === '222');
+        const { ref, set } = window.firebaseModules;
+        if (teamA) set(ref(db, `teams/${teamA.teamId}/workers`), dummyA);
+        if (teamB) set(ref(db, `teams/${teamB.teamId}/workers`), dummyB);
+        alert("Đã thêm dữ liệu mẫu thành công! Vui lòng tải lại trang.");
     },
 
     importExcel(event) {
