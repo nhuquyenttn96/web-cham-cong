@@ -85,7 +85,18 @@ const app = {
                     this.renderTeamSwitcher();
                 }
                 if(state.currentUser) {
-                   document.getElementById('user-display').innerText = state.currentUser.name;
+                    const updatedUser = state.accounts.find(a => a.id === state.currentUser.id);
+                    if (updatedUser) state.currentUser = updatedUser;
+                    
+                    const ud = document.getElementById('user-display');
+                    if (ud) ud.innerText = state.currentUser.name;
+                    
+                    const rd = document.getElementById('role-display');
+                    if (rd) rd.innerText = state.currentUser.name;
+
+                    if (state.currentUser.role === 'PM') {
+                        this.renderPMWorkerTeamSelector();
+                    }
                 }
             }
         });
@@ -285,19 +296,7 @@ const app = {
         if(state.currentUser && state.currentUser.role === 'PM') {
             document.getElementById('account-management-section').style.display = 'block';
             this.renderAccountSettings();
-            
-            const pmTeamSel = document.getElementById('pm-worker-team');
-            if(pmTeamSel) {
-                pmTeamSel.innerHTML = '';
-                state.accounts.filter(a => a.role === 'LEADER').forEach(t => {
-                    const opt = document.createElement('option');
-                    opt.value = t.teamId;
-                    opt.textContent = t.name;
-                    if(t.teamId === state.currentTeam) opt.selected = true;
-                    pmTeamSel.appendChild(opt);
-                });
-                document.getElementById('pm-team-selector-container').style.display = 'block';
-            }
+            this.renderPMWorkerTeamSelector();
         } else {
             document.getElementById('account-management-section').style.display = 'none';
             if(document.getElementById('pm-team-selector-container')) {
@@ -308,6 +307,22 @@ const app = {
 
     closeWorkerModal() {
         document.getElementById('worker-modal').classList.remove('active');
+    },
+
+    renderPMWorkerTeamSelector() {
+        const pmTeamSel = document.getElementById('pm-worker-team');
+        if(pmTeamSel) {
+            const currentVal = pmTeamSel.value || state.currentTeam;
+            pmTeamSel.innerHTML = '';
+            state.accounts.filter(a => a.role === 'LEADER').forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.teamId;
+                opt.textContent = t.name;
+                if(t.teamId === currentVal) opt.selected = true;
+                pmTeamSel.appendChild(opt);
+            });
+            document.getElementById('pm-team-selector-container').style.display = 'block';
+        }
     },
 
     renderWorkerSettings() {
