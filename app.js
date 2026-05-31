@@ -15,19 +15,24 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getDatabase(firebaseApp);
 
-
-
 const dNow = new Date();
 const todayStr = dNow.getFullYear() + '-' + String(dNow.getMonth() + 1).padStart(2, '0') + '-' + String(dNow.getDate()).padStart(2, '0');
 const firstDayStr = todayStr.slice(0, 8) + '01';
 
 const state = {
-    role: null, 
+    accounts: [],
+    teams: [],
+    currentUser: null,
+    currentTeam: null,
+    
     currentDate: todayStr, 
     summaryStartDate: firstDayStr,
     summaryEndDate: todayStr,
     history: {},
-    workers: []
+    workers: [],
+
+    unsubscribeWorkers: null,
+    unsubscribeHistory: null
 };
 
 function ensureDateData(dateStr) {
@@ -36,7 +41,9 @@ function ensureDateData(dateStr) {
             dailyData: {},
             otData: {},
             dailyStatus: 'NOT_SUBMITTED',
-            otStatus: 'NOT_SUBMITTED'
+            otStatus: 'NOT_SUBMITTED',
+            approvedBy: '',
+            approvedAt: ''
         };
         state.workers.forEach(w => {
             state.history[dateStr].dailyData[w.id] = 0;
@@ -55,26 +62,70 @@ function ensureDateData(dateStr) {
 }
 
 const app = {
+    boot() {
+        const accRef = ref(db, 'accounts');
+        onValue(accRef, (snapshot) => {
+            const data = snapshot.val();
+            if (!data) {
+                const defaultAccounts = [
+                    { id: 'acc_pm', name: 'Quản lý Nguyễn Quang Luận', role: 'PM', pin: '4444' },
+                    { id: 'acc_sup', name: 'Giám sát Phạm Anh Võ', role: 'SUPERVISOR', pin: '3333' },
+                    { id: 'acc_teamA', name: 'Đội Nguyễn Văn A', role: 'LEADER', pin: '111', teamId: 'teamA' },
+                    { id: 'acc_teamB', name: 'Đội Nguyễn Văn B', role: 'LEADER', pin: '222', teamId: 'teamB' }
+                ];
+                set(ref(db, 'accounts'), defaultAccounts);
+            } else {
+                state.accounts = Array.isArray(data) ? data.filter(d=>d) : Object.values(data);
+                state.teams = state.accounts.filter(a => a.role === 'LEADER');
+                this.renderLoginAccounts();
+                if(state.currentUser && state.currentUser.role === 'PM') {
+                    this.renderAccountSettings();
+                }
+                if(state.currentUser && state.currentUser.role !== 'LEADER') {
+                    this.renderTeamSwitcher();
+                }
+            }
+        });
+    },
+
+    renderLoginAccounts() {
+        const select = document.getElementById('login-account');
+        if(!select) return;
+        select.innerHTML = '<option value="">-- Chọn Tên của bạn --</option>';
+        state.accounts.forEach(acc => {
+            select.innerHTML += `<option value="${acc.id}">${acc.name}</option>`;
+        });
+    },
+
     login() {
-        const role = document.getElementById('login-role').value;
+        const accId = document.getElementById('login-account').value;
         const pin = document.getElementById('login-pin').value;
         
-        let valid = false;
-        if(role === 'LEADER' && pin === '1111') valid = true;
-        if(role === 'SUPERVISOR' && pin === '2222') valid = true;
-        if(role === 'PM' && pin === '3333') valid = true;
+        if(!accId) { alert('Vui lòng chọn Tên Tài khoản!'); return; }
         
-        if(!valid) {
-            alert('Mã PIN không đúng!');
+        const acc = state.accounts.find(a => a.id === accId);
+        if(!acc || acc.pin !== pin) {
+            alert('Mật khẩu (PIN) không đúng!');
             return;
         }
         
-        state.role = role;
-        document.body.setAttribute('data-role', role);
+        state.currentUser = acc;
+        document.body.setAttribute('data-role', acc.role);
+        
+        if (acc.role === 'LEADER') {
+            state.currentTeam = acc.teamId;
+            document.getElementById('team-switcher').style.display = 'none';
+        } else {
+            state.currentTeam = state.teams.length > 0 ? state.teams[0].teamId : null;
+            document.getElementById('team-switcher').style.display = 'block';
+            this.renderTeamSwitcher();
+        }
+
+        document.getElementById('role-display').innerText = acc.name;
         document.getElementById('login-overlay').classList.remove('active');
         document.getElementById('app').style.display = 'block';
         
-        this.init();
+        this.initTeamData();
     },
 
     logout() {
@@ -83,45 +134,62 @@ const app = {
         }
     },
 
-    init() {
+    renderTeamSwitcher() {
+        const select = document.getElementById('team-switcher');
+        if(!select) return;
+        select.innerHTML = '';
+        state.teams.forEach(t => {
+            select.innerHTML += `<option value="${t.teamId}" ${t.teamId === state.currentTeam ? 'selected' : ''}>${t.name}</option>`;
+        });
+    },
+
+    switchTeam(teamId) {
+        state.currentTeam = teamId;
+        this.initTeamData();
+    },
+
+    initTeamData() {
+        if (!state.currentTeam) return;
+
+        if (state.unsubscribeWorkers) state.unsubscribeWorkers();
+        if (state.unsubscribeHistory) state.unsubscribeHistory();
+
+        state.history = {};
+        state.workers = [];
+
         document.getElementById('date-picker-daily').value = state.currentDate;
         document.getElementById('summary-start').value = state.summaryStartDate;
         document.getElementById('summary-end').value = state.summaryEndDate;
 
-        const workersRef = ref(db, 'workers');
-        onValue(workersRef, (snapshot) => {
+        const workersRef = ref(db, `teams/${state.currentTeam}/workers`);
+        state.unsubscribeWorkers = onValue(workersRef, (snapshot) => {
             const data = snapshot.val();
-            if (!data || data.length === 0) {
-                const mockWorkers = [
-                    { id: 'W01', name: 'Nguyễn Văn A', role: 'Thợ chính', wage: 60000, isActive: true },
-                    { id: 'W02', name: 'Trần Văn B', role: 'Thợ phụ', wage: 45000, isActive: true },
-                    { id: 'W03', name: 'Lê Thị C', role: 'Thợ phụ', wage: 45000, isActive: true },
-                    { id: 'W04', name: 'Phạm Văn D', role: 'Thợ chính', wage: 60000, isActive: true },
-                    { id: 'W05', name: 'Hoàng Văn E', role: 'Thợ phụ', wage: 45000, isActive: true }
-                ];
-                set(ref(db, 'workers'), mockWorkers);
-            } else {
+            if (data) {
                 state.workers = data.filter(w => w !== null); 
-                ensureDateData(state.currentDate);
-                this.renderDaily();
-                this.renderOT();
-                this.renderSummary();
-                this.renderWorkerSettings();
+            } else {
+                state.workers = [];
             }
+            ensureDateData(state.currentDate);
+            this.renderDaily();
+            this.renderOT();
+            this.renderSummary();
+            this.renderWorkerSettings();
         });
 
-        const historyRef = ref(db, 'history');
-        onValue(historyRef, (snapshot) => {
+        const historyRef = ref(db, `teams/${state.currentTeam}/history`);
+        state.unsubscribeHistory = onValue(historyRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 for (let dateStr in data) {
                     if (!state.history[dateStr]) {
-                        state.history[dateStr] = { dailyData: {}, otData: {}, dailyStatus: 'NOT_SUBMITTED', otStatus: 'NOT_SUBMITTED' };
+                        state.history[dateStr] = { dailyData: {}, otData: {}, dailyStatus: 'NOT_SUBMITTED', otStatus: 'NOT_SUBMITTED', approvedBy: '', approvedAt: '' };
                     }
                     if (data[dateStr].dailyData) state.history[dateStr].dailyData = data[dateStr].dailyData;
                     if (data[dateStr].otData) state.history[dateStr].otData = data[dateStr].otData;
                     if (data[dateStr].dailyStatus) state.history[dateStr].dailyStatus = data[dateStr].dailyStatus;
                     if (data[dateStr].otStatus) state.history[dateStr].otStatus = data[dateStr].otStatus;
+                    if (data[dateStr].approvedBy) state.history[dateStr].approvedBy = data[dateStr].approvedBy;
+                    if (data[dateStr].approvedAt) state.history[dateStr].approvedAt = data[dateStr].approvedAt;
                 }
             }
             ensureDateData(state.currentDate);
@@ -132,9 +200,62 @@ const app = {
         });
     },
 
+    // ACCOUNT MANAGEMENT FOR PM
+    showAddAccountModal() {
+        document.getElementById('add-account-modal').classList.add('active');
+    },
+
+    saveNewAccount() {
+        const name = document.getElementById('new-acc-name').value.trim();
+        const role = document.getElementById('new-acc-role').value;
+        const pin = document.getElementById('new-acc-pin').value.trim();
+        if(!name || !pin) { alert("Vui lòng nhập Tên và Mật khẩu!"); return; }
+
+        const id = 'acc_' + new Date().getTime();
+        const newAcc = { id, name, role, pin };
+        if (role === 'LEADER') {
+            newAcc.teamId = 'team_' + new Date().getTime();
+        }
+
+        const newAccounts = [...state.accounts, newAcc];
+        set(ref(db, 'accounts'), newAccounts).then(() => {
+            alert("Đã thêm tài khoản thành công!");
+            document.getElementById('add-account-modal').classList.remove('active');
+            document.getElementById('new-acc-name').value = '';
+            document.getElementById('new-acc-pin').value = '';
+        });
+    },
+
+    renderAccountSettings() {
+        const container = document.getElementById('settings-account-list');
+        if(!container) return;
+        container.innerHTML = '';
+        state.accounts.forEach((acc, index) => {
+            container.innerHTML += `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0; border-bottom: 1px solid #fdf4ff;">
+                    <div>
+                        <strong>${acc.name}</strong><br>
+                        <small style="color:#64748b">${acc.role === 'PM' ? 'Quản lý' : acc.role === 'SUPERVISOR' ? 'Giám sát' : 'Đội trưởng'} | PIN: <span style="font-family:monospace; background:#e2e8f0; padding:2px 4px; border-radius:4px;">${acc.pin}</span></small>
+                    </div>
+                    ${acc.role !== 'PM' ? `<button class="btn btn-danger" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.deleteAccount(${index})">Xóa</button>` : ''}
+                </div>
+            `;
+        });
+    },
+
+    deleteAccount(index) {
+        if(!confirm(`Bạn muốn xóa tài khoản ${state.accounts[index].name}?`)) return;
+        const newAccounts = state.accounts.filter((_, i) => i !== index);
+        set(ref(db, 'accounts'), newAccounts);
+    },
+
+    // WORKER MANAGEMENT
     openWorkerModal() {
         document.getElementById('worker-modal').classList.add('active');
         this.renderWorkerSettings();
+        if(state.currentUser && state.currentUser.role === 'PM') {
+            this.renderAccountSettings();
+        }
     },
 
     closeWorkerModal() {
@@ -172,7 +293,7 @@ const app = {
         
         const newId = 'W' + new Date().getTime(); 
         const newWorkers = [...state.workers, { id: newId, name: name, role: role, wage: wage, isActive: true }];
-        set(ref(db, 'workers'), newWorkers);
+        set(ref(db, `teams/${state.currentTeam}/workers`), newWorkers);
         
         document.getElementById('new-worker-name').value = '';
         document.getElementById('new-worker-wage').value = '50000';
@@ -182,14 +303,14 @@ const app = {
         if(!confirm(`Báo nghỉ việc đối với công nhân ${state.workers[index].name}? (Vẫn sẽ được tính lương trong quá khứ)`)) return;
         const newWorkers = [...state.workers];
         newWorkers[index].isActive = false;
-        set(ref(db, 'workers'), newWorkers);
+        set(ref(db, `teams/${state.currentTeam}/workers`), newWorkers);
     },
 
     restoreWorker(index) {
         if(!confirm(`Khôi phục làm việc đối với công nhân ${state.workers[index].name}?`)) return;
         const newWorkers = [...state.workers];
         newWorkers[index].isActive = true;
-        set(ref(db, 'workers'), newWorkers);
+        set(ref(db, `teams/${state.currentTeam}/workers`), newWorkers);
     },
 
     downloadTemplate() {
@@ -224,10 +345,9 @@ const app = {
                 return;
             }
 
-            if(!confirm(`Phát hiện ${json.length} người trong file Excel. Tiến hành đồng bộ? (Những người trên hệ thống không có trong file này sẽ bị chuyển sang trạng thái Đã Nghỉ Việc)`)) return;
+            if(!confirm(`Phát hiện ${json.length} người trong file Excel. Tiến hành đồng bộ cho đội này?`)) return;
 
             let newWorkers = [...state.workers];
-            // Đặt tất cả thành Inactive tạm thời
             newWorkers.forEach(w => w.isActive = false);
 
             json.forEach(row => {
@@ -247,7 +367,7 @@ const app = {
                 }
             });
 
-            set(ref(db, 'workers'), newWorkers);
+            set(ref(db, `teams/${state.currentTeam}/workers`), newWorkers);
             alert("Đã đồng bộ danh sách nhân sự thành công!");
             document.getElementById('excel-upload').value = '';
         };
@@ -282,8 +402,10 @@ const app = {
             current.setDate(current.getDate() + 1);
         }
 
+        // SHEET 1: Tổng hợp
         const data = [
             ["BẢNG TỔNG HỢP CHẤM CÔNG VÀ THANH TOÁN LƯƠNG"],
+            [`Đội: ${state.teams.find(t=>t.teamId === state.currentTeam)?.name || ''}`],
             [`Từ ngày: ${startStr} - Đến ngày: ${endStr}`],
             [],
             ["STT", "Họ và Tên", "Chức danh", "Công Hành chính (Giờ)", "Tăng ca (Giờ)", "Tổng công (Giờ)", "Đơn giá (VNĐ/h)", "Tiền Hành chính", "Tiền Tăng ca (x1.5)", "Tổng cộng (VNĐ)"]
@@ -319,16 +441,53 @@ const app = {
 
         const ws = XLSX.utils.aoa_to_sheet(data);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Bang_Cong");
+        XLSX.utils.book_append_sheet(wb, ws, "Tong_Hop_Thang");
         
-        const wscols = [{wch:5}, {wch:25}, {wch:15}, {wch:20}, {wch:15}, {wch:15}, {wch:15}, {wch:18}, {wch:18}, {wch:20}];
-        ws['!cols'] = wscols;
+        ws['!cols'] = [{wch:5}, {wch:25}, {wch:15}, {wch:20}, {wch:15}, {wch:15}, {wch:15}, {wch:18}, {wch:18}, {wch:20}];
 
-        XLSX.writeFile(wb, `BangCong_${startStr}_${endStr}.xlsx`);
+        // SHEET 2: Chi tiết
+        const ws2_data = [
+            ["BẢNG KÊ CHI TIẾT HẰNG NGÀY"],
+            [`Đội: ${state.teams.find(t=>t.teamId === state.currentTeam)?.name || ''}`],
+            [`Từ ngày: ${startStr} - Đến ngày: ${endStr}`],
+            [],
+            ["Ngày", "Họ và Tên", "Chức danh", "Công Hành chính (h)", "Tăng ca (h)", "Người duyệt", "Thời gian duyệt"]
+        ];
+
+        let current2 = new Date(startStr);
+        while (current2 <= end) {
+            let dStr = current2.toISOString().split('T')[0];
+            if (state.history[dStr]) {
+                const dayData = state.history[dStr];
+                state.workers.forEach(w => {
+                    const r = dayData.dailyData[w.id] || 0;
+                    const o = dayData.otData[w.id] || 0;
+                    if(r > 0 || o > 0) {
+                        ws2_data.push([
+                            dStr,
+                            w.name,
+                            w.role,
+                            r,
+                            o,
+                            dayData.approvedBy || '',
+                            dayData.approvedAt || ''
+                        ]);
+                    }
+                });
+            }
+            current2.setDate(current2.getDate() + 1);
+        }
+        
+        const ws2 = XLSX.utils.aoa_to_sheet(ws2_data);
+        ws2['!cols'] = [{wch:15}, {wch:25}, {wch:15}, {wch:20}, {wch:15}, {wch:25}, {wch:25}];
+        XLSX.utils.book_append_sheet(wb, ws2, "Chi_Tiet_Ngay");
+
+        const teamNameStr = state.teams.find(t=>t.teamId === state.currentTeam)?.name || 'Doi';
+        XLSX.writeFile(wb, `BangCong_${teamNameStr}_${startStr}_${endStr}.xlsx`);
     },
 
     saveToFirebase(dateStr) {
-        set(ref(db, 'history/' + dateStr), state.history[dateStr]);
+        set(ref(db, `teams/${state.currentTeam}/history/${dateStr}`), state.history[dateStr]);
     },
 
     switchTab(pageId, navElement) {
@@ -366,7 +525,6 @@ const app = {
 
         state.workers.forEach(w => {
             const currentVal = dateData.dailyData[w.id] || 0;
-            // Ẩn nếu đã nghỉ việc VÀ không có chấm công ngày hôm đó
             if (w.isActive === false && currentVal === 0) return;
             
             if(currentVal > 0) totalPresent++;
@@ -601,6 +759,8 @@ const app = {
         if(d.otStatus === 'PENDING' || d.otStatus === 'REJECTED') { d.otStatus = 'SUPERVISOR_APPROVED'; changed = true; }
         
         if (changed) {
+            d.approvedBy = state.currentUser.name;
+            d.approvedAt = new Date().toLocaleString('vi-VN');
             this.saveToFirebase(state.currentDate);
             alert('Đã duyệt bảng công ngày ' + state.currentDate);
         } else {
@@ -623,7 +783,7 @@ const app = {
     },
 
     updateStatusUI() {
-        if(!state.role) return;
+        if(!state.currentUser) return;
         
         const d = state.history[state.currentDate];
         if (!d) return;
@@ -689,7 +849,7 @@ const app = {
         const hasPending = (d.dailyStatus === 'PENDING' || d.otStatus === 'PENDING');
         const hasSupApprove = (d.dailyStatus === 'SUPERVISOR_APPROVED' || d.otStatus === 'SUPERVISOR_APPROVED');
         
-        if(state.role === 'SUPERVISOR') {
+        if(state.currentUser.role === 'SUPERVISOR') {
             btnReject.style.display = hasPending ? 'inline-block' : 'none';
             btnSup.style.display = hasPending ? 'inline-block' : 'none';
         } else {
@@ -697,7 +857,7 @@ const app = {
             btnSup.style.display = 'none';
         }
 
-        if(state.role === 'PM') {
+        if(state.currentUser.role === 'PM') {
             btnPM.style.display = hasSupApprove ? 'inline-block' : 'none';
         } else {
             btnPM.style.display = 'none';
@@ -706,3 +866,4 @@ const app = {
 };
 
 window.app = app;
+app.boot();

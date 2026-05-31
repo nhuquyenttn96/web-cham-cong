@@ -28,16 +28,14 @@
             <h2 class="outfit-font" style="text-align:center; margin-bottom: 20px;">Đăng Nhập</h2>
             
             <div class="form-group">
-                <label>Vai trò</label>
-                <select id="login-role" class="input-modern">
-                    <option value="LEADER">Đội Trưởng</option>
-                    <option value="SUPERVISOR">Giám Sát</option>
-                    <option value="PM">Quản Lý (PM)</option>
+                <label>Chọn Tài Khoản</label>
+                <select id="login-account" class="input-modern">
+                    <option value="">Đang tải danh sách...</option>
                 </select>
             </div>
             <div class="form-group">
-                <label>Mã PIN</label>
-                <input type="password" id="login-pin" class="input-modern" placeholder="Nhập mã PIN (vd: 1111)">
+                <label>Mật Khẩu (PIN)</label>
+                <input type="password" id="login-pin" class="input-modern" placeholder="Nhập mật khẩu">
             </div>
             <button class="btn btn-primary large shadow-glow" style="width:100%" onclick="app.login()">Vào Ứng Dụng</button>
         </div>
@@ -63,6 +61,19 @@
                 <button class="btn btn-primary shadow-glow" style="width:100%; margin-bottom: 20px;" onclick="app.addWorker()">+ Thêm Người</button>
             </div>
 
+            <!-- ACCOUNT MANAGEMENT (PM ONLY) -->
+            <div class="action-pm-only" style="width:100%;">
+                <div style="width:100%; display:flex; flex-direction:column; gap: 10px; margin-bottom: 20px; padding: 15px; background: #fdf4ff; border-radius: 12px; border: 1px dashed #e879f9; box-sizing:border-box;">
+                    <h3 style="font-size:0.9rem; color:#86198f; margin:0; display:flex; justify-content:space-between; align-items:center;">
+                        Quản lý Tài Khoản & Đội Khoán
+                        <button class="btn btn-primary" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.showAddAccountModal()">+ Thêm Mới</button>
+                    </h3>
+                    <div id="settings-account-list" style="max-height: 200px; overflow-y:auto; font-size:0.85rem; border-top: 1px solid #f5d0fe; padding-top: 10px;">
+                        <!-- JS Render -->
+                    </div>
+                </div>
+            </div>
+
             <!-- EXCEL IMPORT (PM ONLY) -->
             <div class="action-pm-only" style="width:100%;">
                 <div style="width:100%; display:flex; flex-direction:column; gap: 10px; margin-bottom: 20px; padding: 15px; background: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1; box-sizing:border-box;">
@@ -85,19 +96,18 @@
         <!-- HEADER -->
         <header class="premium-header">
             <div class="header-top">
-                <div class="brand">
-                    <div class="brand-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+                <div class="logo">
+                    <img src="icon.png" alt="Logo">
+                    <div>
+                        <h1>HIREECO</h1>
+                        <p id="role-display" style="color:var(--primary-light); font-size:0.8rem; margin:0">Quản lý Nhân Sự</p>
                     </div>
-                    <h1>HIREE</h1>
                 </div>
-                <div class="header-actions" style="display:flex; gap: 10px;">
-                    <button class="btn-icon action-pm-only" onclick="app.openWorkerModal()" title="Cài đặt">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                    </button>
-                    <button class="btn-icon" onclick="app.logout()" title="Đăng xuất">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                    </button>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <select id="team-switcher" class="input-modern" style="padding: 4px 8px; font-size: 0.85rem; display: none; width: 120px;" onchange="app.switchTeam(this.value)">
+                    </select>
+                    <button class="btn-icon" onclick="app.showWorkerSettings()">⚙️</button>
+                    <button class="btn-icon" onclick="app.logout()">🚪</button>
                 </div>
             </div>
             
@@ -214,7 +224,34 @@
         </nav>
     </div>
     
-    <script type="module" src="app.js?v=5"></script>
+    <!-- ADD ACCOUNT MODAL -->
+    <div id="add-account-modal" class="modal-overlay" style="z-index: 1000;">
+        <div class="login-card" style="max-width: 400px; width: 90%;">
+            <h3 style="margin-top:0; color:var(--text-main);">Thêm Tài Khoản / Đội Khoán</h3>
+            <div class="form-group">
+                <label>Tên hiển thị</label>
+                <input type="text" id="new-acc-name" class="input-modern" placeholder="VD: Đội Trần Văn C">
+            </div>
+            <div class="form-group">
+                <label>Quyền hạn</label>
+                <select id="new-acc-role" class="input-modern">
+                    <option value="LEADER">Đội trưởng (Tự tạo 1 Đội mới)</option>
+                    <option value="SUPERVISOR">Giám sát (Xem tất cả Đội)</option>
+                    <option value="PM">Quản lý (Toàn quyền)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Mật khẩu (PIN)</label>
+                <input type="text" id="new-acc-pin" class="input-modern" placeholder="VD: 5555">
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn" style="flex:1;" onclick="document.getElementById('add-account-modal').classList.remove('active')">Hủy</button>
+                <button class="btn btn-primary" style="flex:1;" onclick="app.saveNewAccount()">Lưu</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app.js?v=6"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
