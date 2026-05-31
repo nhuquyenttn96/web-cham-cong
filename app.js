@@ -408,8 +408,9 @@ const app = {
             { id: 'W3', name: 'Phạm Thị Thợ', role: 'Thợ chính', wage: 550000, isActive: true },
             { id: 'W4', name: 'Hoàng Văn Hồ', role: 'Thợ phụ', wage: 350000, isActive: true }
         ];
-        const teamA = state.accounts.find(a => a.pin === '111');
-        const teamB = state.accounts.find(a => a.pin === '222');
+        const leaders = state.accounts.filter(a => a.role === 'LEADER');
+        const teamA = leaders[0];
+        const teamB = leaders.length > 1 ? leaders[1] : leaders[0];
         const { ref, set } = window.firebaseModules;
         if (teamA) set(ref(db, `teams/${teamA.teamId}/workers`), dummyA);
         if (teamB) set(ref(db, `teams/${teamB.teamId}/workers`), dummyB);
