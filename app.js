@@ -333,8 +333,8 @@ const app = {
             const isInactive = w.isActive === false;
             const opacity = isInactive ? '0.5' : '1';
             const btnHtml = isInactive 
-                ? `<div style="display:flex; gap: 5px;"><button class="btn btn-success" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.restoreWorker(${index})">Khôi phục</button><button class="btn btn-warning" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.hardDeleteWorker(${index})">Xóa</button></div>`
-                : `<div style="display:flex; gap: 5px;"><button class="btn btn-danger" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.deleteWorker(${index})">Cho nghỉ</button><button class="btn btn-warning" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.hardDeleteWorker(${index})">Xóa</button></div>`;
+                ? `<div style="display:flex; gap: 5px;"><button class="btn btn-warning" style="padding: 4px 8px; font-size:0.8rem;" onclick="app.editWorker(${index})">Sửa</button><button class="btn btn-success" style="padding: 4px 8px; font-size:0.8rem;" onclick="app.restoreWorker(${index})">Khôi phục</button><button class="btn" style="padding: 4px 8px; font-size:0.8rem; background:#64748b; color:#fff; border:none;" onclick="app.hardDeleteWorker(${index})">Xóa</button></div>`
+                : `<div style="display:flex; gap: 5px;"><button class="btn btn-warning" style="padding: 4px 8px; font-size:0.8rem;" onclick="app.editWorker(${index})">Sửa</button><button class="btn btn-danger" style="padding: 4px 8px; font-size:0.8rem;" onclick="app.deleteWorker(${index})">Cho nghỉ</button><button class="btn" style="padding: 4px 8px; font-size:0.8rem; background:#64748b; color:#fff; border:none;" onclick="app.hardDeleteWorker(${index})">Xóa</button></div>`;
 
             container.innerHTML += `
                 <div class="worker-row-settings" style="opacity: ${opacity};">
@@ -402,6 +402,28 @@ const app = {
     hardDeleteWorker(index) {
         if(!confirm(`Bạn có CHẮC CHẮN muốn XÓA HẲN công nhân ${state.workers[index].name}? (Mất vĩnh viễn dữ liệu của người này!)`)) return;
         const newWorkers = state.workers.filter((_, i) => i !== index);
+        set(ref(db, `teams/${state.currentTeam}/workers`), newWorkers);
+    },
+
+    editWorker(index) {
+        const w = state.workers[index];
+        const newName = prompt("Sửa Tên công nhân:", w.name);
+        if (newName === null) return;
+        const newRole = prompt("Sửa Chức danh (VD: Thợ chính, Thợ phụ):", w.role);
+        if (newRole === null) return;
+        const newWageStr = prompt("Sửa Lương/ngày (VD: 500000):", w.wage);
+        if (newWageStr === null) return;
+        
+        if (newName.trim() === '' || newRole.trim() === '') {
+            alert("Tên và chức danh không được để trống!");
+            return;
+        }
+
+        const newWorkers = [...state.workers];
+        newWorkers[index].name = newName.trim();
+        newWorkers[index].role = newRole.trim();
+        newWorkers[index].wage = parseInt(newWageStr.trim().replace(/\D/g, '')) || w.wage;
+        
         set(ref(db, `teams/${state.currentTeam}/workers`), newWorkers);
     },
 
