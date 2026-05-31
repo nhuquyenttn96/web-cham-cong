@@ -1220,9 +1220,9 @@ const app = {
                         ${p.paidTo ? `<div style="margin-top:2px; font-size:0.85rem; color:#64748b;">Thanh toán cho: ${p.paidTo}</div>` : ''}
                     </div>
                     ${state.currentUser.role === 'PM' ? `
-                    <div style="display:flex; flex-direction:column; gap:5px;">
-                        <button class="btn btn-success" style="padding:5px 10px; font-size:0.8rem;" onclick="app.editPayment('${p.id}')">Cập nhật thanh toán</button>
-                        <button class="btn btn-danger" style="padding:5px 10px; font-size:0.8rem;" onclick="app.deletePayment('${p.id}')">Xóa</button>
+                    <div style="display:flex; flex-direction:row; gap:8px; margin-top:8px;">
+                        <button class="btn btn-success" style="padding:6px 12px; font-size:0.85rem;" onclick="app.editPayment('${p.id}')">Cập nhật thanh toán</button>
+                        <button class="btn btn-danger" style="padding:6px 16px; font-size:0.85rem;" onclick="app.deletePayment('${p.id}')">Xóa</button>
                     </div>
                     ` : ''}
                 `;
