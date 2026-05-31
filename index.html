@@ -11,9 +11,13 @@
     <link rel="apple-touch-icon" href="icon.png">
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css?v=8">
-    <!-- SheetJS for Excel Export -->
+    <!-- SheetJS for Import -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- ExcelJS & FileSaver for Beautiful Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
     <!-- LOGIN OVERLAY -->
@@ -317,9 +321,19 @@
                 <label>Số tiền trình (VNĐ)</label>
                 <input type="text" id="pay-req-amount" class="input-modern" placeholder="VD: 8000000">
             </div>
-            <div class="form-group" id="pay-paid-group" style="display:none;">
-                <label>Công ty ĐÃ thanh toán (VNĐ)</label>
-                <input type="text" id="pay-paid-amount" class="input-modern" placeholder="VD: 5000000">
+            <div id="pay-paid-group" style="display:none;">
+                <div class="form-group">
+                    <label>Công ty ĐÃ thanh toán (VNĐ)</label>
+                    <input type="text" id="pay-paid-amount" class="input-modern" placeholder="VD: 5000000">
+                </div>
+                <div class="form-group">
+                    <label>Ngày thanh toán</label>
+                    <input type="date" id="pay-paid-date" class="input-modern">
+                </div>
+                <div class="form-group">
+                    <label>Thanh toán cho ai</label>
+                    <input type="text" id="pay-paid-to" class="input-modern" placeholder="VD: Đội trưởng Ánh">
+                </div>
             </div>
             <input type="hidden" id="pay-req-id">
             <div style="display:flex; gap:10px;">
@@ -329,7 +343,7 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=19"></script>
+    <script type="module" src="app.js?v=20"></script>
     <script>
         function togglePin() {
             const p = document.getElementById('login-pin');

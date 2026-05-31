@@ -541,8 +541,8 @@ const app = {
         reader.readAsBinaryString(file);
     },
 
-    exportExcel() {
-        if(!window.XLSX) {
+    async exportExcel() {
+        if(!window.ExcelJS) {
             alert("Đang tải thư viện Excel, vui lòng thử lại sau 2 giây...");
             return;
         }
@@ -569,15 +569,54 @@ const app = {
             current.setDate(current.getDate() + 1);
         }
 
-        // SHEET 1: Tổng hợp
-        const data = [
-            ["BẢNG TỔNG HỢP CHẤM CÔNG VÀ THANH TOÁN LƯƠNG"],
-            [`Đội: ${state.teams.find(t=>t.teamId === state.currentTeam)?.name || ''}`],
-            [`Từ ngày: ${startStr} - Đến ngày: ${endStr}`],
-            [],
-            ["STT", "Họ và Tên", "Chức danh", "Công Hành chính (Giờ)", "Tăng ca (Giờ)", "Tổng công (Giờ)", "Đơn giá (VNĐ/h)", "Tiền Hành chính", "Tiền Tăng ca (x1.5)", "Tổng cộng (VNĐ)"]
-        ];
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Tong_Hop_Thang');
 
+        // Styles
+        const titleStyle = { font: { name: 'Arial', size: 16, bold: true }, alignment: { vertical: 'middle', horizontal: 'center' } };
+        const subtitleStyle = { font: { name: 'Arial', size: 11, bold: true, italic: true } };
+        const headerStyle = {
+            font: { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } },
+            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E78' } },
+            alignment: { vertical: 'middle', horizontal: 'center', wrapText: true },
+            border: {
+                top: { style: 'thin' }, left: { style: 'thin' },
+                bottom: { style: 'thin' }, right: { style: 'thin' }
+            }
+        };
+        const cellStyle = {
+            font: { name: 'Arial', size: 11 },
+            alignment: { vertical: 'middle', horizontal: 'center' },
+            border: {
+                top: { style: 'thin' }, left: { style: 'thin' },
+                bottom: { style: 'thin' }, right: { style: 'thin' }
+            }
+        };
+        const moneyStyle = { ...cellStyle, numFmt: '#,##0', alignment: { vertical: 'middle', horizontal: 'right' } };
+
+        // 1. Titles
+        ws.mergeCells('A1:J1');
+        ws.getCell('A1').value = "BẢNG TỔNG HỢP CHẤM CÔNG VÀ THANH TOÁN LƯƠNG";
+        ws.getCell('A1').style = titleStyle;
+
+        ws.mergeCells('A2:J2');
+        ws.getCell('A2').value = `Đội: ${state.teams.find(t=>t.teamId === state.currentTeam)?.name || ''}`;
+        ws.getCell('A2').style = subtitleStyle;
+
+        ws.mergeCells('A3:J3');
+        ws.getCell('A3').value = `Từ ngày: ${startStr} - Đến ngày: ${endStr}`;
+        ws.getCell('A3').style = subtitleStyle;
+        ws.addRow([]); // Empty row 4
+
+        // 2. Headers
+        const headers = ["STT", "Họ và Tên", "Chức danh", "Công Hành chính", "Tăng ca (Giờ)", "Tổng công (Giờ)", "Đơn giá (VNĐ/h)", "Tiền Hành chính", "Tiền Tăng ca", "Tổng cộng (VNĐ)"];
+        const headerRow = ws.addRow(headers);
+        headerRow.height = 30;
+        headerRow.eachCell((cell) => {
+            cell.style = headerStyle;
+        });
+
+        // 3. Data
         let stt = 1;
         let sumMoney = 0;
         state.workers.forEach(w => {
@@ -588,7 +627,8 @@ const app = {
                 const moneyOT = rowData.ot * rowData.wage * 1.5;
                 const money = moneyReg + moneyOT;
                 sumMoney += money;
-                data.push([
+                
+                const dataRow = ws.addRow([
                     stt++,
                     rowData.name,
                     rowData.role,
@@ -600,37 +640,77 @@ const app = {
                     moneyOT,
                     money
                 ]);
+
+                dataRow.eachCell((cell, colNumber) => {
+                    cell.style = (colNumber >= 7) ? moneyStyle : cellStyle;
+                    if(colNumber === 2 || colNumber === 3) cell.alignment = { vertical: 'middle', horizontal: 'left' }; // Name left align
+                });
             }
         });
 
-        data.push([]);
-        data.push(["", "", "", "", "", "", "", "", "TỔNG CỘNG:", sumMoney]);
+        // 4. Footer
+        const footerRow = ws.addRow(["", "", "", "", "", "", "", "", "TỔNG CỘNG:", sumMoney]);
+        footerRow.eachCell((cell, colNumber) => {
+            if (colNumber === 9 || colNumber === 10) {
+                cell.style = {
+                    font: { name: 'Arial', size: 12, bold: true, color: { argb: 'FF9C0006' } },
+                    fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } },
+                    alignment: { vertical: 'middle', horizontal: 'right' },
+                    numFmt: '#,##0',
+                    border: {
+                        top: { style: 'thin' }, left: { style: 'thin' },
+                        bottom: { style: 'thin' }, right: { style: 'thin' }
+                    }
+                };
+            }
+        });
 
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Tong_Hop_Thang");
-        
-        ws['!cols'] = [{wch:5}, {wch:25}, {wch:15}, {wch:20}, {wch:15}, {wch:15}, {wch:15}, {wch:18}, {wch:18}, {wch:20}];
-
-        // SHEET 2: Chi tiết
-        const ws2_data = [
-            ["BẢNG KÊ CHI TIẾT HẰNG NGÀY"],
-            [`Đội: ${state.teams.find(t=>t.teamId === state.currentTeam)?.name || ''}`],
-            [`Từ ngày: ${startStr} - Đến ngày: ${endStr}`],
-            [],
-            ["Ngày", "Họ và Tên", "Chức danh", "Công Hành chính (h)", "Tăng ca (h)", "Người duyệt", "Thời gian duyệt"]
+        // Columns width
+        ws.columns = [
+            { width: 6 },  // STT
+            { width: 25 }, // Name
+            { width: 15 }, // Role
+            { width: 18 }, // Reg
+            { width: 15 }, // OT
+            { width: 15 }, // Total hours
+            { width: 15 }, // Wage
+            { width: 18 }, // Money Reg
+            { width: 18 }, // Money OT
+            { width: 20 }  // Total
         ];
 
-        let current2 = new Date(startStr);
-        while (current2 <= end) {
-            let dStr = current2.toISOString().split('T')[0];
+        // SHEET 2: Chi tiết
+        const ws2 = wb.addWorksheet('Chi_Tiet_Ngay');
+        
+        ws2.mergeCells('A1:G1');
+        ws2.getCell('A1').value = "BẢNG KÊ CHI TIẾT HẰNG NGÀY";
+        ws2.getCell('A1').style = titleStyle;
+
+        ws2.mergeCells('A2:G2');
+        ws2.getCell('A2').value = `Đội: ${state.teams.find(t=>t.teamId === state.currentTeam)?.name || ''}`;
+        ws2.getCell('A2').style = subtitleStyle;
+
+        ws2.mergeCells('A3:G3');
+        ws2.getCell('A3').value = `Từ ngày: ${startStr} - Đến ngày: ${endStr}`;
+        ws2.getCell('A3').style = subtitleStyle;
+        ws2.addRow([]);
+
+        const headers2 = ["Ngày", "Họ và Tên", "Chức danh", "Công HC (h)", "Tăng ca (h)", "Người duyệt", "Thời gian duyệt"];
+        const headerRow2 = ws2.addRow(headers2);
+        headerRow2.height = 30;
+        headerRow2.eachCell((cell) => cell.style = headerStyle);
+
+        current = new Date(startStr);
+        end = new Date(endStr);
+        while (current <= end) {
+            let dStr = current.toISOString().split('T')[0];
             if (state.history[dStr]) {
                 const dayData = state.history[dStr];
                 state.workers.forEach(w => {
                     const r = dayData.dailyData[w.id] || 0;
                     const o = dayData.otData[w.id] || 0;
                     if(r > 0 || o > 0) {
-                        ws2_data.push([
+                        const dr = ws2.addRow([
                             dStr,
                             w.name,
                             w.role,
@@ -639,18 +719,29 @@ const app = {
                             dayData.approvedBy || '',
                             dayData.approvedAt || ''
                         ]);
+                        dr.eachCell((cell, colNum) => {
+                            cell.style = cellStyle;
+                            if(colNum === 2 || colNum === 3) cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                        });
                     }
                 });
             }
-            current2.setDate(current2.getDate() + 1);
+            current.setDate(current.getDate() + 1);
         }
-        
-        const ws2 = XLSX.utils.aoa_to_sheet(ws2_data);
-        ws2['!cols'] = [{wch:15}, {wch:25}, {wch:15}, {wch:20}, {wch:15}, {wch:25}, {wch:25}];
-        XLSX.utils.book_append_sheet(wb, ws2, "Chi_Tiet_Ngay");
+
+        ws2.columns = [
+            { width: 15 }, // Ngay
+            { width: 25 }, // Ho ten
+            { width: 15 }, // Chuc danh
+            { width: 15 }, // Cong HC
+            { width: 15 }, // Tang ca
+            { width: 25 }, // Nguoi duyet
+            { width: 25 }  // Tgian duyet
+        ];
 
         const teamNameStr = state.teams.find(t=>t.teamId === state.currentTeam)?.name || 'Doi';
-        XLSX.writeFile(wb, `BangCong_${teamNameStr}_${startStr}_${endStr}.xlsx`);
+        const buffer = await wb.xlsx.writeBuffer();
+        saveAs(new Blob([buffer]), `BangCong_${teamNameStr}_${startStr}_${endStr}.xlsx`);
     },
 
     saveToFirebase(dateStr) {
@@ -1108,10 +1199,12 @@ const app = {
                         <div style="margin-top:4px; font-size:0.9rem;">
                             Còn nợ: <strong style="color:${isPaidFull ? '#16a34a' : '#dc2626'}">${owed.toLocaleString('vi-VN')}</strong>
                         </div>
+                        ${p.paidDate ? `<div style="margin-top:4px; font-size:0.85rem; color:#64748b;">Ngày thanh toán: ${p.paidDate}</div>` : ''}
+                        ${p.paidTo ? `<div style="margin-top:2px; font-size:0.85rem; color:#64748b;">Thanh toán cho: ${p.paidTo}</div>` : ''}
                     </div>
                     ${state.currentUser.role === 'PM' ? `
                     <div style="display:flex; flex-direction:column; gap:5px;">
-                        <button class="btn btn-warning" style="padding:5px 10px; font-size:0.8rem;" onclick="app.editPayment('${p.id}')">Sửa</button>
+                        <button class="btn btn-warning" style="padding:5px 10px; font-size:0.8rem;" onclick="app.editPayment('${p.id}')">Cập nhật thanh toán</button>
                         <button class="btn btn-danger" style="padding:5px 10px; font-size:0.8rem;" onclick="app.deletePayment('${p.id}')">Xóa</button>
                     </div>
                     ` : ''}
@@ -1133,6 +1226,8 @@ const app = {
         document.getElementById('pay-req-note').value = '';
         document.getElementById('pay-req-amount').value = '';
         document.getElementById('pay-paid-amount').value = '0';
+        document.getElementById('pay-paid-date').value = '';
+        document.getElementById('pay-paid-to').value = '';
         document.getElementById('pay-paid-group').style.display = 'none';
         document.getElementById('payment-modal-title').innerText = 'Trình Thanh Toán Mới';
         document.getElementById('payment-modal').classList.add('active');
@@ -1145,6 +1240,8 @@ const app = {
         document.getElementById('pay-req-note').value = p.note || '';
         document.getElementById('pay-req-amount').value = p.requestedAmount || 0;
         document.getElementById('pay-paid-amount').value = p.paidAmount || 0;
+        document.getElementById('pay-paid-date').value = p.paidDate || '';
+        document.getElementById('pay-paid-to').value = p.paidTo || '';
         document.getElementById('pay-paid-group').style.display = 'block';
         document.getElementById('payment-modal-title').innerText = 'Cập nhật Thanh Toán';
         document.getElementById('payment-modal').classList.add('active');
@@ -1155,6 +1252,8 @@ const app = {
         const note = document.getElementById('pay-req-note').value.trim();
         const reqAmountStr = document.getElementById('pay-req-amount').value.replace(/[,.]/g, '');
         const paidAmountStr = document.getElementById('pay-paid-amount').value.replace(/[,.]/g, '');
+        const paidDate = document.getElementById('pay-paid-date').value;
+        const paidTo = document.getElementById('pay-paid-to').value.trim();
         const reqAmount = parseInt(reqAmountStr) || 0;
         const paidAmount = parseInt(paidAmountStr) || 0;
 
@@ -1169,6 +1268,8 @@ const app = {
             note: note,
             requestedAmount: reqAmount,
             paidAmount: paidAmount,
+            paidDate: paidDate,
+            paidTo: paidTo,
             createdAt: id ? state.payments.find(x=>x.id===id).createdAt : Date.now()
         };
 
