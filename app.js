@@ -240,11 +240,10 @@ const app = {
                         <strong>${acc.name}</strong><br>
                         <small style="color:#64748b">${acc.role === 'PM' ? 'Quản lý' : acc.role === 'SUPERVISOR' ? 'Giám sát' : 'Đội trưởng'} | PIN: <span style="font-family:monospace; background:#e2e8f0; padding:2px 4px; border-radius:4px;">${acc.pin}</span></small>
                     </div>
-                    ${acc.role !== 'PM' ? `
                     <div style="display:flex; gap: 5px;">
                         <button class="btn btn-warning" style="padding: 4px 8px; font-size:0.75rem;" onclick="app.editAccount(${index})">Sửa</button>
-                        <button class="btn btn-danger" style="padding: 4px 8px; font-size:0.75rem;" onclick="app.deleteAccount(${index})">Xóa</button>
-                    </div>` : ''}
+                        ${acc.role !== 'PM' ? `<button class="btn btn-danger" style="padding: 4px 8px; font-size:0.75rem;" onclick="app.deleteAccount(${index})">Xóa</button>` : ''}
+                    </div>
                 </div>
             `;
         });
