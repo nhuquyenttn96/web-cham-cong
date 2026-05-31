@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDVOFcPfc4Bc4gAEdwZQ-i9VV0KIR1Sudc",
@@ -358,7 +358,6 @@ const app = {
         const newId = 'W' + new Date().getTime(); 
         
         // Push direct to Firebase to avoid state sync issues across teams
-        const { ref, get, set } = window.firebaseModules;
         const workersRef = ref(db, `teams/${targetTeamId}/workers`);
         
         get(workersRef).then((snapshot) => {
@@ -416,7 +415,6 @@ const app = {
             }
             const teamA = leaders[0];
             const teamB = leaders.length > 1 ? leaders[1] : leaders[0];
-            const { ref, set } = window.firebaseModules;
             
             console.log("Seeding data for:", teamA.name, teamB.name);
             const p1 = teamA ? set(ref(db, `teams/${teamA.teamId}/workers`), dummyA) : Promise.resolve();
