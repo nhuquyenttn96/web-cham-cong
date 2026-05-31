@@ -399,22 +399,40 @@ const app = {
         XLSX.writeFile(wb, `Mau_Nhap_Cong_Nhan.xlsx`);
     },
 
-    seedWorkers() {
-        const dummyA = [
-            { id: 'W1', name: 'Trần Văn Phụ', role: 'Thợ phụ', wage: 300000, isActive: true },
-            { id: 'W2', name: 'Lê Văn Chính', role: 'Thợ chính', wage: 500000, isActive: true }
-        ];
-        const dummyB = [
-            { id: 'W3', name: 'Phạm Thị Thợ', role: 'Thợ chính', wage: 550000, isActive: true },
-            { id: 'W4', name: 'Hoàng Văn Hồ', role: 'Thợ phụ', wage: 350000, isActive: true }
-        ];
-        const leaders = state.accounts.filter(a => a.role === 'LEADER');
-        const teamA = leaders[0];
-        const teamB = leaders.length > 1 ? leaders[1] : leaders[0];
-        const { ref, set } = window.firebaseModules;
-        if (teamA) set(ref(db, `teams/${teamA.teamId}/workers`), dummyA);
-        if (teamB) set(ref(db, `teams/${teamB.teamId}/workers`), dummyB);
-        alert("Đã thêm dữ liệu mẫu thành công! Vui lòng tải lại trang.");
+    async seedWorkers() {
+        try {
+            const dummyA = [
+                { id: 'W1', name: 'Trần Văn Phụ', role: 'Thợ phụ', wage: 300000, isActive: true },
+                { id: 'W2', name: 'Lê Văn Chính', role: 'Thợ chính', wage: 500000, isActive: true }
+            ];
+            const dummyB = [
+                { id: 'W3', name: 'Phạm Thị Thợ', role: 'Thợ chính', wage: 550000, isActive: true },
+                { id: 'W4', name: 'Hoàng Văn Hồ', role: 'Thợ phụ', wage: 350000, isActive: true }
+            ];
+            const leaders = state.accounts.filter(a => a.role === 'LEADER');
+            if(leaders.length === 0) {
+                alert("Không tìm thấy Đội khoán nào để thêm dữ liệu mẫu!");
+                return;
+            }
+            const teamA = leaders[0];
+            const teamB = leaders.length > 1 ? leaders[1] : leaders[0];
+            const { ref, set } = window.firebaseModules;
+            
+            console.log("Seeding data for:", teamA.name, teamB.name);
+            const p1 = teamA ? set(ref(db, `teams/${teamA.teamId}/workers`), dummyA) : Promise.resolve();
+            const p2 = teamB ? set(ref(db, `teams/${teamB.teamId}/workers`), dummyB) : Promise.resolve();
+            
+            await Promise.all([p1, p2]);
+            alert("Đã thêm dữ liệu mẫu thành công! Đang tải lại dữ liệu...");
+            
+            // Re-render
+            if (app.renderWorkerSettingsList) app.renderWorkerSettingsList();
+            if (app.renderMainList) app.renderMainList();
+            
+        } catch (err) {
+            console.error("Seed Error: ", err);
+            alert("Lỗi tạo mẫu: " + err.message);
+        }
     },
 
     importExcel(event) {
