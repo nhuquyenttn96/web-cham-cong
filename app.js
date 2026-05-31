@@ -319,8 +319,8 @@ const app = {
             const isInactive = w.isActive === false;
             const opacity = isInactive ? '0.5' : '1';
             const btnHtml = isInactive 
-                ? `<button class="btn btn-success" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.restoreWorker(${index})">Khôi phục</button>`
-                : `<button class="btn btn-danger" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.deleteWorker(${index})">Cho nghỉ</button>`;
+                ? `<div style="display:flex; gap: 5px;"><button class="btn btn-success" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.restoreWorker(${index})">Khôi phục</button><button class="btn btn-warning" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.hardDeleteWorker(${index})">Xóa</button></div>`
+                : `<div style="display:flex; gap: 5px;"><button class="btn btn-danger" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.deleteWorker(${index})">Cho nghỉ</button><button class="btn btn-warning" style="padding: 4px 10px; font-size:0.8rem;" onclick="app.hardDeleteWorker(${index})">Xóa</button></div>`;
 
             container.innerHTML += `
                 <div class="worker-row-settings" style="opacity: ${opacity};">
@@ -382,6 +382,12 @@ const app = {
         if(!confirm(`Khôi phục làm việc đối với công nhân ${state.workers[index].name}?`)) return;
         const newWorkers = [...state.workers];
         newWorkers[index].isActive = true;
+        set(ref(db, `teams/${state.currentTeam}/workers`), newWorkers);
+    },
+
+    hardDeleteWorker(index) {
+        if(!confirm(`Bạn có CHẮC CHẮN muốn XÓA HẲN công nhân ${state.workers[index].name}? (Mất vĩnh viễn dữ liệu của người này!)`)) return;
+        const newWorkers = state.workers.filter((_, i) => i !== index);
         set(ref(db, `teams/${state.currentTeam}/workers`), newWorkers);
     },
 
