@@ -609,7 +609,7 @@ const app = {
         ws.addRow([]); // Empty row 4
 
         // 2. Headers
-        const headers = ["STT", "Họ và Tên", "Chức danh", "Công Hành chính", "Tăng ca (Giờ)", "Tổng công (Giờ)", "Đơn giá (VNĐ/h)", "Tiền Hành chính", "Tiền Tăng ca", "Tổng cộng (VNĐ)"];
+        const headers = ["STT", "Họ và Tên", "Chức danh", "Công Hành chính (Ngày)", "Tăng ca (Ngày)", "Tổng công (Ngày)", "Đơn giá (VNĐ/Ngày)", "Tiền Hành chính", "Tiền Tăng ca", "Tổng cộng (VNĐ)"];
         const headerRow = ws.addRow(headers);
         headerRow.height = 30;
         headerRow.eachCell((cell) => {
@@ -622,7 +622,11 @@ const app = {
         state.workers.forEach(w => {
             const rowData = aggregated[w.id];
             if(rowData.reg > 0 || rowData.ot > 0) {
-                const totalHours = rowData.reg + rowData.ot;
+                const regDays = rowData.reg / 8;
+                const otDays = rowData.ot / 8;
+                const totalDays = regDays + otDays;
+                const dailyWage = rowData.wage * 8;
+                
                 const moneyReg = rowData.reg * rowData.wage;
                 const moneyOT = rowData.ot * rowData.wage * 1.5;
                 const money = moneyReg + moneyOT;
@@ -632,10 +636,10 @@ const app = {
                     stt++,
                     rowData.name,
                     rowData.role,
-                    rowData.reg,
-                    rowData.ot,
-                    totalHours,
-                    rowData.wage,
+                    regDays,
+                    otDays,
+                    totalDays,
+                    dailyWage,
                     moneyReg,
                     moneyOT,
                     money
