@@ -1116,10 +1116,16 @@ const app = {
                 case 'SUPERVISOR_APPROVED':
                     if (isTabActive) { banner.className = 'status-banner supervisor_approved'; text.innerText = 'Giám sát đã duyệt'; }
                     box.innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Giám sát đã duyệt)</button>`;
+                    if (state.currentUser.role === 'PM' || state.currentUser.role === 'SUPERVISOR') {
+                        box.innerHTML += `<button class="btn btn-danger large shadow-glow" style="margin-top: 10px;" onclick="app.unlockDay()">Mở Khóa Để Sửa Lại</button>`;
+                    }
                     break;
                 case 'PM_APPROVED':
                     if (isTabActive) { banner.className = 'status-banner pm_approved'; text.innerText = 'Quản lý đã duyệt'; }
                     box.innerHTML = `<button class="btn large" disabled style="background:#e2e8f0; color:#94a3b8">Đã khóa (Quản lý đã duyệt)</button>`;
+                    if (state.currentUser.role === 'PM') {
+                        box.innerHTML += `<button class="btn btn-danger large shadow-glow" style="margin-top: 10px;" onclick="app.unlockDay()">Mở Khóa Để Sửa Lại</button>`;
+                    }
                     break;
             }
         };
