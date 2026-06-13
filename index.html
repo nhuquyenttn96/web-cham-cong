@@ -214,7 +214,7 @@
                         Trạng thái ngày đang chọn: <strong id="summary-status-text">Chờ duyệt</strong>
                     </div>
                     <div class="btn-group-center mt-3" style="flex-wrap: wrap; gap: 8px;">
-                        <button id="btn-reject-supervisor" class="btn btn-danger action-supervisor-only" onclick="app.rejectBySupervisor()">Trả Về Sửa</button>
+                        <button id="btn-unlock-day" class="btn btn-danger" style="display:none;" onclick="app.unlockDay()">Mở Khóa / Trả Về</button>
                         <button id="btn-approve-supervisor" class="btn btn-warning action-supervisor-only" onclick="app.approveBySupervisor()">Duyệt Bảng Công</button>
                         <button id="btn-approve-pm" class="btn btn-success action-pm-only" onclick="app.approveByPM()">Quản lý Duyệt</button>
                         <button id="btn-reset-pm" class="btn" style="background:#dc2626; color:white;" onclick="app.resetDayData()">Reset Dữ Liệu Ngày</button>
@@ -360,7 +360,7 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=30"></script>
+    <script type="module" src="app.js?v=31"></script>
     <script>
         function togglePin() {
             const p = document.getElementById('login-pin');

@@ -996,17 +996,30 @@ const app = {
         this.updateStatusUI();
     },
 
-    rejectBySupervisor() {
+    unlockDay() {
         const d = state.history[state.currentDate];
+        if (state.currentUser.role === 'SUPERVISOR') {
+             if (d.dailyStatus === 'PM_APPROVED' || d.otStatus === 'PM_APPROVED') {
+                 alert('Quản lý dự án đã duyệt chốt, Giám sát không thể mở khóa!');
+                 return;
+             }
+        }
+
+        if(!confirm("Bạn có chắc chắn muốn MỞ KHÓA / TRẢ VỀ bảng công này để sửa lại?")) return;
+
         let changed = false;
-        if(d.dailyStatus === 'PENDING') { d.dailyStatus = 'REJECTED'; changed = true; }
-        if(d.otStatus === 'PENDING') { d.otStatus = 'REJECTED'; changed = true; }
+        if(d.dailyStatus === 'PENDING' || d.dailyStatus === 'SUPERVISOR_APPROVED' || (state.currentUser.role === 'PM' && d.dailyStatus === 'PM_APPROVED')) { d.dailyStatus = 'REJECTED'; changed = true; }
+        if(d.otStatus === 'PENDING' || d.otStatus === 'SUPERVISOR_APPROVED' || (state.currentUser.role === 'PM' && d.otStatus === 'PM_APPROVED')) { d.otStatus = 'REJECTED'; changed = true; }
         
         if (changed) {
+            d.approvedBy = '';
+            d.approvedAt = '';
             this.saveToFirebase(state.currentDate);
-            alert('Đã trả về cho Đội trưởng để sửa lại.');
+            alert('Đã mở khóa và trả về trạng thái Cần sửa lại.');
+            this.renderDaily();
+            this.updateStatusUI();
         } else {
-            alert('Không có bảng công nào đang "Chờ Duyệt" để trả về.');
+            alert('Không có bảng công nào hợp lệ để mở khóa.');
         }
     },
 
@@ -1120,28 +1133,32 @@ const app = {
         else if (d.dailyStatus === 'PM_APPROVED' || d.otStatus === 'PM_APPROVED') sumBox.innerText = 'QUẢN LÝ DUYỆT';
         else sumBox.innerText = 'Chưa gửi';
 
-        const btnReject = document.getElementById('btn-reject-supervisor');
+        const btnUnlock = document.getElementById('btn-unlock-day');
         const btnSup = document.getElementById('btn-approve-supervisor');
         const btnPM = document.getElementById('btn-approve-pm');
+        const btnResetPM = document.getElementById('btn-reset-pm');
         
         const hasPending = (d.dailyStatus === 'PENDING' || d.otStatus === 'PENDING');
         const hasSupApprove = (d.dailyStatus === 'SUPERVISOR_APPROVED' || d.otStatus === 'SUPERVISOR_APPROVED');
+        const hasPMApprove = (d.dailyStatus === 'PM_APPROVED' || d.otStatus === 'PM_APPROVED');
         
         if(state.currentUser.role === 'SUPERVISOR') {
-            btnReject.style.display = hasPending ? 'inline-block' : 'none';
-            btnSup.style.display = hasPending ? 'inline-block' : 'none';
-        } else {
-            btnReject.style.display = 'none';
-            btnSup.style.display = 'none';
-        }
-
-        const btnResetPM = document.getElementById('btn-reset-pm');
-        
-        if(state.currentUser.role === 'PM') {
-            btnPM.style.display = hasSupApprove ? 'inline-block' : 'none';
+            if (btnUnlock) {
+                btnUnlock.style.display = (hasPending || hasSupApprove) ? 'inline-block' : 'none';
+                btnUnlock.innerText = hasSupApprove ? 'Mở Khóa / Trả Về' : 'Trả Về Sửa';
+            }
+            if (btnSup) btnSup.style.display = hasPending ? 'inline-block' : 'none';
+        } else if (state.currentUser.role === 'PM') {
+            if (btnUnlock) {
+                btnUnlock.style.display = (hasPending || hasSupApprove || hasPMApprove) ? 'inline-block' : 'none';
+                btnUnlock.innerText = 'Mở Khóa Bảng Công';
+            }
+            if (btnPM) btnPM.style.display = hasSupApprove ? 'inline-block' : 'none';
             if (btnResetPM) btnResetPM.style.display = 'inline-block';
         } else {
-            btnPM.style.display = 'none';
+            if (btnUnlock) btnUnlock.style.display = 'none';
+            if (btnSup) btnSup.style.display = 'none';
+            if (btnPM) btnPM.style.display = 'none';
             if (btnResetPM) btnResetPM.style.display = 'none';
         }
     },
