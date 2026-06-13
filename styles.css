@@ -458,7 +458,7 @@ body[data-role="PM"] .action-pm-only { display: inline-block; }
 }
 .pay-sub-stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 15px;
 }
 .pay-stat-box {
@@ -509,8 +509,5 @@ body[data-role="PM"] .action-pm-only { display: inline-block; }
     }
     .pay-stat-box .pay-value {
         font-size: 1rem;
-    }
-    .pay-stat-box.highlight-red {
-        grid-column: 1 / -1;
     }
 }

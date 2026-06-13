@@ -1231,8 +1231,10 @@ const app = {
         }
 
         const totalOwed = totalRequested - totalPaid;
+        const totalUnrequested = totalEarned - totalRequested;
 
         document.getElementById('pay-total-earned').innerText = Math.round(totalEarned).toLocaleString('vi-VN');
+        document.getElementById('pay-total-unrequested').innerText = Math.round(totalUnrequested).toLocaleString('vi-VN');
         document.getElementById('pay-total-requested').innerText = totalRequested.toLocaleString('vi-VN');
         document.getElementById('pay-total-paid').innerText = totalPaid.toLocaleString('vi-VN');
         document.getElementById('pay-total-owed').innerText = totalOwed.toLocaleString('vi-VN');
