@@ -154,6 +154,9 @@ const app = {
         const select = document.getElementById('team-switcher');
         if(!select) return;
         select.innerHTML = '';
+        if (state.currentUser && state.currentUser.role === 'PM') {
+            select.innerHTML += `<option value="ALL" ${state.currentTeam === 'ALL' ? 'selected' : ''}>-- Tất cả các đội --</option>`;
+        }
         state.teams.forEach(t => {
             select.innerHTML += `<option value="${t.teamId}" ${t.teamId === state.currentTeam ? 'selected' : ''}>${t.name}</option>`;
         });
@@ -348,13 +351,6 @@ const app = {
         if(pmTeamSel) {
             const currentVal = pmTeamSel.value || state.currentTeam;
             pmTeamSel.innerHTML = '';
-            
-            const allOpt = document.createElement('option');
-            allOpt.value = 'ALL';
-            allOpt.textContent = '-- Tất cả các đội --';
-            if('ALL' === currentVal) allOpt.selected = true;
-            pmTeamSel.appendChild(allOpt);
-            
             state.accounts.filter(a => a.role === 'LEADER').forEach(t => {
                 const opt = document.createElement('option');
                 opt.value = t.teamId;
