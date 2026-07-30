@@ -1041,7 +1041,9 @@ const app = {
              let teamOT = 0;
              let teamMoney = 0;
              
-             const workers = tData.workers || [];
+             let workersRaw = tData.workers || [];
+             if (!Array.isArray(workersRaw)) workersRaw = Object.values(workersRaw);
+             const workers = workersRaw.filter(w => w !== null);
              const history = tData.history || {};
              
              let current = new Date(startStr);
