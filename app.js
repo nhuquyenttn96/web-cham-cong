@@ -170,6 +170,22 @@ const app = {
         if (state.unsubscribeWorkers) state.unsubscribeWorkers();
         if (state.unsubscribeHistory) state.unsubscribeHistory();
         if (state.unsubscribePayments) state.unsubscribePayments();
+        if (state.unsubscribeAllTeams) state.unsubscribeAllTeams();
+        
+        if (state.currentTeam === 'ALL') {
+            document.querySelector('.bottom-nav').style.display = 'none';
+            app.switchTab('page-summary', document.querySelectorAll('.nav-item')[2]);
+            
+            const allRef = ref(db, 'teams');
+            state.unsubscribeAllTeams = onValue(allRef, (snapshot) => {
+                state.allTeamsData = snapshot.val() || {};
+                this.renderSummary();
+            });
+            return;
+        } else {
+            const bottomNav = document.querySelector('.bottom-nav');
+            if (bottomNav) bottomNav.style.display = 'flex';
+        }
 
         state.history = {};
         state.workers = [];
@@ -332,6 +348,13 @@ const app = {
         if(pmTeamSel) {
             const currentVal = pmTeamSel.value || state.currentTeam;
             pmTeamSel.innerHTML = '';
+            
+            const allOpt = document.createElement('option');
+            allOpt.value = 'ALL';
+            allOpt.textContent = '-- Tất cả các đội --';
+            if('ALL' === currentVal) allOpt.selected = true;
+            pmTeamSel.appendChild(allOpt);
+            
             state.accounts.filter(a => a.role === 'LEADER').forEach(t => {
                 const opt = document.createElement('option');
                 opt.value = t.teamId;
@@ -940,6 +963,11 @@ const app = {
             return;
         }
 
+        if (state.currentTeam === 'ALL') {
+            this.renderAllTeamsSummary(startStr, endStr);
+            return;
+        }
+
         let totalReg = 0;
         let totalOT = 0;
         
@@ -977,7 +1005,7 @@ const app = {
                     <div class="worker-card" style="flex-direction:row; align-items:center; background: white; border-bottom: 1px solid var(--border-color); padding: 12px; display: flex; justify-content: space-between;">
                         <div style="flex:1;">
                             <div class="worker-name" style="font-weight:600;">${data.name}</div>
-                            <div class="subtitle" style="font-size:0.8rem; color:var(--text-muted);">Thường: ${data.reg}h | Tăng ca: ${data.ot}h</div>
+                            <div class="subtitle" style="font-size:0.8rem; color:var(--text-muted);">Thường: ${data.reg/8} ngày | Tăng ca: ${data.ot/8} ngày</div>
                         </div>
                         <div style="font-weight:700; color:#2563eb;">
                             ${personalTotal.toLocaleString('vi-VN')} đ
@@ -993,11 +1021,82 @@ const app = {
             totalMoney += (rowData.reg * rowData.wage) + (rowData.ot * rowData.wage * 1.5);
         });
         
-        document.getElementById('sum-regular-hours').innerText = totalReg;
-        document.getElementById('sum-ot-hours').innerText = totalOT;
+        document.getElementById('sum-regular-hours').innerText = (totalReg / 8) + ' ngày';
+        document.getElementById('sum-ot-hours').innerText = (totalOT / 8) + ' ngày';
         document.getElementById('sum-total-amount').innerText = totalMoney.toLocaleString('vi-VN') + ' đ';
         
         this.updateStatusUI();
+    },
+
+    renderAllTeamsSummary(startStr, endStr) {
+        const container = document.getElementById('summary-list');
+        container.innerHTML = '';
+        
+        let grandTotalReg = 0;
+        let grandTotalOT = 0;
+        let grandTotalMoney = 0;
+
+        state.accounts.filter(a => a.role === 'LEADER').forEach(teamAcc => {
+             const tId = teamAcc.teamId;
+             const tData = state.allTeamsData[tId];
+             if (!tData) return;
+             
+             let teamReg = 0;
+             let teamOT = 0;
+             let teamMoney = 0;
+             
+             const workers = tData.workers || [];
+             const history = tData.history || {};
+             
+             let current = new Date(startStr);
+             let end = new Date(endStr);
+             while (current <= end) {
+                 let dStr = current.toISOString().split('T')[0];
+                 if (history[dStr]) {
+                     const dayData = history[dStr];
+                     if (dayData.dailyStatus === 'SUPERVISOR_APPROVED' || dayData.dailyStatus === 'PM_APPROVED') {
+                         workers.forEach(w => {
+                             const r = dayData.dailyData[w.id] || 0;
+                             teamReg += r;
+                             teamMoney += r * w.wage;
+                         });
+                     }
+                     if (dayData.otStatus === 'SUPERVISOR_APPROVED' || dayData.otStatus === 'PM_APPROVED') {
+                         workers.forEach(w => {
+                             const o = dayData.otData[w.id] || 0;
+                             teamOT += o;
+                             teamMoney += o * w.wage * 1.5;
+                         });
+                     }
+                 }
+                 current.setDate(current.getDate() + 1);
+             }
+             
+             if (teamReg > 0 || teamOT > 0) {
+                 grandTotalReg += teamReg;
+                 grandTotalOT += teamOT;
+                 grandTotalMoney += teamMoney;
+                 
+                 container.innerHTML += `
+                    <div class="worker-card" style="flex-direction:row; align-items:center; background: white; border-bottom: 1px solid var(--border-color); padding: 12px; display: flex; justify-content: space-between;">
+                        <div style="flex:1;">
+                            <div class="worker-name" style="font-weight:600;">${teamAcc.name}</div>
+                            <div class="subtitle" style="font-size:0.8rem; color:var(--text-muted);">Thường: ${teamReg / 8} ngày | Tăng ca: ${teamOT / 8} ngày</div>
+                        </div>
+                        <div style="font-weight:700; color:#2563eb;">
+                            ${teamMoney.toLocaleString('vi-VN')} đ
+                        </div>
+                    </div>
+                `;
+             }
+        });
+        
+        document.getElementById('sum-regular-hours').innerText = (grandTotalReg / 8) + ' ngày';
+        document.getElementById('sum-ot-hours').innerText = (grandTotalOT / 8) + ' ngày';
+        document.getElementById('sum-total-amount').innerText = grandTotalMoney.toLocaleString('vi-VN') + ' đ';
+        
+        const approvalBox = document.getElementById('summary-approval-box');
+        if (approvalBox) approvalBox.style.display = 'none';
     },
 
     unlockDay() {
